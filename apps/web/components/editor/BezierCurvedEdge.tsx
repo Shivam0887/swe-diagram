@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from '@xyflow/react';
 import type { DiagramEdge, EdgeStyle, EdgeAnimationType, EdgeAnimationSpeed } from '@platform/diagram-schema';
-import { EdgeAnimationOverlay, edgeAnimationPathId } from './EdgeAnimation';
+import { EdgeAnimationOverlay, edgeAnimationStyle } from './EdgeAnimation';
 
 export type BezierEdgeData = DiagramEdge['data'] & {
   /** Optional padding from source/target for the control points. */
@@ -34,14 +34,21 @@ export const BezierCurvedEdge = memo(
     const strokeWidth = edgeData?.strokeWidth ?? (style.strokeWidth ? Number(style.strokeWidth) : 1.5);
     const dasharray = strokeDasharrayFor(edgeData?.dashStyle as EdgeStyle | undefined);
 
-    const [pathD, labelX, labelY] = getBezierPath({
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-    });
+    // getBezierPath does trig + curve math. Memoize on the six coords that
+    // actually affect the result so the same edge doesn't recompute on
+    // every parent re-render (e.g. when doc state changes elsewhere).
+    const [pathD, labelX, labelY] = useMemo(
+      () =>
+        getBezierPath({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+        }),
+      [sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition]
+    );
 
     const isAnimated = edgeData?.animated;
     const animationType: EdgeAnimationType = edgeData?.animationType ?? 'particles';
@@ -51,21 +58,29 @@ export const BezierCurvedEdge = memo(
     // ants are visible. Solid lines still need a stroke-dasharray to march.
     const effectiveDasharray =
       isAnimated && animationType === 'dash_flow' ? '6 4' : dasharray;
-    const pathAnimId = edgeAnimationPathId(id, animationType);
+    const animationStyle = isAnimated ? edgeAnimationStyle(animationType, animationSpeed) : null;
+
+    // Inline `style` allocations on every render force BaseEdge to repaint.
+    // Memoize so the object identity is stable as long as inputs are.
+    const baseEdgeStyle = useMemo(
+      () => ({
+        ...style,
+        stroke: strokeColor,
+        strokeWidth,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'round' as const,
+        strokeDasharray: effectiveDasharray,
+        ...(animationStyle ?? {}),
+      }),
+      [style, strokeColor, strokeWidth, effectiveDasharray, animationStyle]
+    );
 
     return (
       <>
         <BaseEdge
-          id={pathAnimId ?? id}
+          id={id}
           path={pathD}
-          style={{
-            ...style,
-            stroke: strokeColor,
-            strokeWidth,
-            strokeLinecap: 'round',
-            strokeLinejoin: 'round',
-            strokeDasharray: effectiveDasharray,
-          }}
+          style={baseEdgeStyle}
           markerEnd={markerEnd}
         />
 

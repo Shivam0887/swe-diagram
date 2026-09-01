@@ -3,6 +3,33 @@
 @import "tw-animate-css";
 
 /* ========================================================================
+   Editor + diagram-only keyframes. Hoisted here so we don't inject
+   duplicate <style> blocks from every React node/edge on every render.
+   ======================================================================== */
+
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes dash-flow-march {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -20; }
+}
+@keyframes edge-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1.0; }
+}
+
+/* Edge animation classes. The edge component sets a `--edge-anim-dur`
+   custom property on the path so all speeds share the same keyframes. */
+.edge-anim-dash-flow { animation: dash-flow-march var(--edge-anim-dur, 2.2s) linear infinite; }
+.edge-anim-pulse     { animation: edge-pulse     var(--edge-anim-dur, 2.2s) ease-in-out infinite; }
+
+/* Don't let the React Flow background dots intercept pointer events —
+   otherwise they fight with node-edge drag targets during pan. */
+.react-flow__background path { pointer-events: none; }
+
+/* ========================================================================
    Editorial design tokens — single source of truth for chrome + canvas
    Near-monochrome dark with a single vermillion accent (#FF5A1F).
    All visual decisions live here. Components consume var(--…) only.

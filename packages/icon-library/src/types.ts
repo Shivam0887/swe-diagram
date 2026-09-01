@@ -1,3 +1,5 @@
+import type React from 'react';
+
 export type IconCategory =
   | 'client'
   | 'compute'
@@ -43,6 +45,13 @@ export type DiagramIconDefinition = {
   color?: string;
   /** Optional source attribution (library + license). */
   source?: 'native' | 'lucide' | 'tabler';
+  /**
+   * For Lucide/Tabler entries: the resolved React component, attached at
+   * module-load time in `registry.ts`. Consumers should read from this
+   * rather than calling `getLucideIcon` / `getTablerIcon` on every render
+   * (which would re-allocate an uppercased key string each call).
+   */
+  component?: React.ComponentType<any>;
 };
 
 export type IconRegistry = Record<string, DiagramIconDefinition>;

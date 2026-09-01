@@ -1,10 +1,10 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import { generateFilletOrthogonalPath } from '@platform/diagram-layout';
 import type { DiagramEdge, EdgeStyle, Point, EdgeAnimationType, EdgeAnimationSpeed } from '@platform/diagram-schema';
-import { EdgeAnimationOverlay, edgeAnimationPathId } from './EdgeAnimation';
+import { EdgeAnimationOverlay, edgeAnimationStyle } from './EdgeAnimation';
 
 export type CustomEdgeData = DiagramEdge['data'] & {
   waypoints?: Point[];
@@ -39,17 +39,26 @@ export const FilletOrthogonalEdge = memo(
     const strokeWidth = edgeData?.strokeWidth ?? (style.strokeWidth ? Number(style.strokeWidth) : 1.5);
     const dasharray = strokeDasharrayFor(edgeData?.dashStyle as EdgeStyle | undefined);
 
-    const points: Point[] =
-      edgeData?.waypoints && edgeData.waypoints.length >= 2
-        ? edgeData.waypoints
-        : [
-            { x: sourceX, y: sourceY },
-            { x: (sourceX + targetX) / 2, y: sourceY },
-            { x: (sourceX + targetX) / 2, y: targetY },
-            { x: targetX, y: targetY },
-          ];
+    // generateFilletOrthogonalPath iterates over the points; for the
+    // default 4-point fallback (no waypoints) this is the same every
+    // render unless the source/target move. Memoize on the inputs.
+    const points: Point[] = useMemo(
+      () =>
+        edgeData?.waypoints && edgeData.waypoints.length >= 2
+          ? edgeData.waypoints
+          : [
+              { x: sourceX, y: sourceY },
+              { x: (sourceX + targetX) / 2, y: sourceY },
+              { x: (sourceX + targetX) / 2, y: targetY },
+              { x: targetX, y: targetY },
+            ],
+      [edgeData?.waypoints, sourceX, sourceY, targetX, targetY]
+    );
 
-    const pathD = generateFilletOrthogonalPath(points, cornerRadius);
+    const pathD = useMemo(
+      () => generateFilletOrthogonalPath(points, cornerRadius),
+      [points, cornerRadius]
+    );
     const midX = (sourceX + targetX) / 2;
     const midY = (sourceY + targetY) / 2;
 
@@ -59,21 +68,27 @@ export const FilletOrthogonalEdge = memo(
     const flowColor = edgeData?.flowColor ?? '#FF5A1F';
     const effectiveDasharray =
       isAnimated && animationType === 'dash_flow' ? '6 4' : dasharray;
-    const pathAnimId = edgeAnimationPathId(id, animationType);
+    const animationStyle = isAnimated ? edgeAnimationStyle(animationType, animationSpeed) : null;
+
+    const baseEdgeStyle = useMemo(
+      () => ({
+        ...style,
+        stroke: strokeColor,
+        strokeWidth,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'round' as const,
+        strokeDasharray: effectiveDasharray,
+        ...(animationStyle ?? {}),
+      }),
+      [style, strokeColor, strokeWidth, effectiveDasharray, animationStyle]
+    );
 
     return (
       <>
         <BaseEdge
-          id={pathAnimId ?? id}
+          id={id}
           path={pathD}
-          style={{
-            ...style,
-            stroke: strokeColor,
-            strokeWidth,
-            strokeLinecap: 'round',
-            strokeLinejoin: 'round',
-            strokeDasharray: effectiveDasharray,
-          }}
+          style={baseEdgeStyle}
           markerEnd={markerEnd}
         />
 

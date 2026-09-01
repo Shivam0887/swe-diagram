@@ -1,8 +1,8 @@
 import type { DiagramIconDefinition, IconRegistry } from './types';
 import * as icons from './icons';
 import * as arch from './architecture';
-import { lucideIconNames } from './lucide';
-import { tablerIconNames } from './tabler';
+import { lucideIconNames, getLucideIcon } from './lucide';
+import { tablerIconNames, getTablerIcon } from './tabler';
 
 export const iconRegistry: IconRegistry = {
   // Clients
@@ -127,6 +127,10 @@ for (const name of lucideIconNames) {
       viewBox: '0 0 24 24',
       nodes: [], // rendered via React component, not nodes
       source: 'lucide',
+      // Resolve once at module load. Consumers (IconChip, IconPickerModal)
+      // read this instead of calling getLucideIcon on every render, which
+      // would re-allocate an uppercased key string for each lookup.
+      component: getLucideIcon(name) ?? undefined,
     };
   }
 }
@@ -140,6 +144,7 @@ for (const name of tablerIconNames) {
       viewBox: '0 0 24 24',
       nodes: [],
       source: 'tabler',
+      component: getTablerIcon(name) ?? undefined,
     };
   }
 }

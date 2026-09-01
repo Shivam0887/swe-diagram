@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import type { DiagramEdge, EdgeStyle, EdgeAnimationType, EdgeAnimationSpeed } from '@platform/diagram-schema';
-import { EdgeAnimationOverlay, edgeAnimationPathId } from './EdgeAnimation';
+import { EdgeAnimationOverlay, edgeAnimationStyle } from './EdgeAnimation';
 
 export type StraightEdgeData = DiagramEdge['data'];
 
@@ -39,21 +39,29 @@ export const StraightEdge = memo(
     const flowColor = edgeData?.flowColor ?? '#FF5A1F';
     const effectiveDasharray =
       isAnimated && animationType === 'dash_flow' ? '6 4' : dasharray;
-    const pathAnimId = edgeAnimationPathId(id, animationType);
+    const animationStyle = isAnimated ? edgeAnimationStyle(animationType, animationSpeed) : null;
+
+    // Inline `style` allocations on every render force BaseEdge to repaint.
+    // Memoize so the object identity is stable as long as inputs are.
+    const baseEdgeStyle = useMemo(
+      () => ({
+        ...style,
+        stroke: strokeColor,
+        strokeWidth,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'round' as const,
+        strokeDasharray: effectiveDasharray,
+        ...(animationStyle ?? {}),
+      }),
+      [style, strokeColor, strokeWidth, effectiveDasharray, animationStyle]
+    );
 
     return (
       <>
         <BaseEdge
-          id={pathAnimId ?? id}
+          id={id}
           path={pathD}
-          style={{
-            ...style,
-            stroke: strokeColor,
-            strokeWidth,
-            strokeLinecap: 'round',
-            strokeLinejoin: 'round',
-            strokeDasharray: effectiveDasharray,
-          }}
+          style={baseEdgeStyle}
           markerEnd={markerEnd}
         />
 

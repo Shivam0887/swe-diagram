@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { NodeResizeControl, type NodeProps } from '@xyflow/react';
 import type { DiagramGroup } from '@platform/diagram-schema';
-import { resolveTheme } from '@platform/design-system';
+import { useEditorTheme } from './ThemeContext';
 
 /**
  * React Flow renderer for a DiagramGroup. Sits behind the regular
@@ -26,19 +26,40 @@ export type GroupNodeData = {
 
 export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
   const groupData = data as unknown as GroupNodeData;
-  const theme = resolveTheme(groupData.themeId ?? 'polished-dark');
+  const theme = useEditorTheme();
   const style = groupData.style ?? 'boundary';
+
+  // Pre-compute the alpha-blended swatches for this group's stroke color.
+  // `hexWithAlpha` does a regex + three parseInt on every call; for a
+  // group with `style === 'card'` we call it 3× in one render (fill, badge
+  // bg, badge border). Memoizing keyed on the stroke keeps the work to
+  // exactly the alpha variants the style actually needs.
+  const role = groupData.colorRole
+    ? theme.nodes[groupData.colorRole as keyof typeof theme.nodes]
+    : undefined;
+
+  const swatches = useMemo(() => {
+    const accentStroke =
+      role?.border ??
+      (style === 'container'
+        ? theme.groups.containerBorder
+        : style === 'card'
+          ? theme.groups.cardBorder
+          : style === 'swimlane'
+            ? theme.groups.swimlaneBorder
+            : theme.groups.boundaryBorder);
+    return {
+      accentAlpha016: hexWithAlpha(accentStroke, 0.16),
+      accentAlpha040: hexWithAlpha(accentStroke, 0.4),
+    };
+  }, [role, style, theme]);
 
   let fill: string;
   let stroke: string;
   let strokeWidth: number;
   let strokeDash: string;
   let textCol: string;
-  let accentStroke: string;
 
-  const role = groupData.colorRole
-    ? theme.nodes[groupData.colorRole as keyof typeof theme.nodes]
-    : undefined;
   switch (style) {
     case 'container':
       fill = role ? hexWithAlpha(role.background, 0.4) : theme.groups.containerBackground;
@@ -46,7 +67,6 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
       textCol = role?.text ?? theme.groups.containerText;
       strokeWidth = 1.5;
       strokeDash = '';
-      accentStroke = stroke;
       break;
     case 'card':
       fill = role ? hexWithAlpha(role.background, 0.18) : theme.groups.cardBackground;
@@ -54,7 +74,6 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
       textCol = role?.text ?? theme.groups.cardText;
       strokeWidth = 1.5;
       strokeDash = '';
-      accentStroke = stroke;
       break;
     case 'swimlane':
       fill = role ? hexWithAlpha(role.background, 0.15) : theme.groups.swimlaneBackground;
@@ -62,7 +81,6 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
       textCol = role?.text ?? theme.groups.swimlaneText;
       strokeWidth = 1;
       strokeDash = '';
-      accentStroke = stroke;
       break;
     case 'boundary':
     default:
@@ -71,7 +89,6 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
       textCol = role?.text ?? theme.groups.boundaryText;
       strokeWidth = 1;
       strokeDash = '6 4';
-      accentStroke = stroke;
       break;
   }
 
@@ -99,8 +116,8 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
             alignItems: 'center',
             padding: '2px 10px',
             borderRadius: 999,
-            background: hexWithAlpha(accentStroke, 0.16),
-            border: `1px solid ${hexWithAlpha(accentStroke, 0.4)}`,
+            background: swatches.accentAlpha016,
+            border: `1px solid ${swatches.accentAlpha040}`,
             color: textCol,
             fontSize: 10,
             fontWeight: 600,
@@ -121,7 +138,7 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
             left: 16,
             right: 16,
             paddingBottom: 6,
-            borderBottom: `1px solid ${hexWithAlpha(accentStroke, 0.4)}`,
+            borderBottom: `1px solid ${swatches.accentAlpha040}`,
             color: textCol,
             fontSize: 11,
             fontWeight: 700,

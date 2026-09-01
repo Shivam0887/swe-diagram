@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import type { DiagramEdge, EdgeStyle, Point, EdgeAnimationType, EdgeAnimationSpeed } from '@platform/diagram-schema';
-import { EdgeAnimationOverlay, edgeAnimationPathId } from './EdgeAnimation';
+import { EdgeAnimationOverlay, edgeAnimationStyle } from './EdgeAnimation';
 
 export type StepEdgeData = DiagramEdge['data'] & {
   waypoints?: Point[];
@@ -34,19 +34,23 @@ export const StepOrthogonalEdge = memo(
       return undefined;
     })();
 
-    const points: Point[] =
-      edgeData?.waypoints && edgeData.waypoints.length >= 2
-        ? edgeData.waypoints
-        : [
-            { x: sourceX, y: sourceY },
-            { x: (sourceX + targetX) / 2, y: sourceY },
-            { x: (sourceX + targetX) / 2, y: targetY },
-            { x: targetX, y: targetY },
-          ];
+    const points: Point[] = useMemo(
+      () =>
+        edgeData?.waypoints && edgeData.waypoints.length >= 2
+          ? edgeData.waypoints
+          : [
+              { x: sourceX, y: sourceY },
+              { x: (sourceX + targetX) / 2, y: sourceY },
+              { x: (sourceX + targetX) / 2, y: targetY },
+              { x: targetX, y: targetY },
+            ],
+      [edgeData?.waypoints, sourceX, sourceY, targetX, targetY]
+    );
 
-    const pathD = points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-      .join(' ');
+    const pathD = useMemo(
+      () => points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' '),
+      [points]
+    );
 
     const midX = (sourceX + targetX) / 2;
     const midY = (sourceY + targetY) / 2;
@@ -57,22 +61,28 @@ export const StepOrthogonalEdge = memo(
     const flowColor = edgeData?.flowColor ?? '#FF5A1F';
     const effectiveDasharray =
       isAnimated && animationType === 'dash_flow' ? '6 4' : dasharray;
-    const pathAnimId = edgeAnimationPathId(id, animationType);
+    const animationStyle = isAnimated ? edgeAnimationStyle(animationType, animationSpeed) : null;
+
+    const baseEdgeStyle = useMemo(
+      () => ({
+        ...style,
+        stroke: strokeColor,
+        strokeWidth,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'miter' as const,
+        strokeMiterlimit: 4,
+        strokeDasharray: effectiveDasharray,
+        ...(animationStyle ?? {}),
+      }),
+      [style, strokeColor, strokeWidth, effectiveDasharray, animationStyle]
+    );
 
     return (
       <>
         <BaseEdge
-          id={pathAnimId ?? id}
+          id={id}
           path={pathD}
-          style={{
-            ...style,
-            stroke: strokeColor,
-            strokeWidth,
-            strokeLinecap: 'round',
-            strokeLinejoin: 'miter',
-            strokeMiterlimit: 4,
-            strokeDasharray: effectiveDasharray,
-          }}
+          style={baseEdgeStyle}
           markerEnd={markerEnd}
         />
 

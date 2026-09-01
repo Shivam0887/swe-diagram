@@ -5,12 +5,11 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { DiagramNode, NodeShape } from '@platform/diagram-schema';
 import {
   getIcon,
-  getLucideIcon,
-  getTablerIcon,
   IconShapes,
   type DiagramIconDefinition,
 } from '@platform/icon-library';
-import { resolveTheme } from '@platform/design-system';
+import { resolveTheme, type Theme } from '@platform/design-system';
+import { useEditorTheme } from './ThemeContext';
 
 export type CustomNodeData = DiagramNode['data'] & {
   shape?: DiagramNode['shape'];
@@ -30,7 +29,12 @@ type RoleColors = ReturnType<typeof resolveTheme>['nodes'][keyof ReturnType<type
  */
 export const CustomDiagramNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as unknown as CustomNodeData;
-  const theme = resolveTheme(nodeData.themeId ?? 'polished-dark');
+  // Pull theme from context; if there is no provider, fall back to the
+  // default. Keeping the call inside the component (rather than lifting
+  // it into the editor's memo'd flowNodes) means an individual node can
+  // still be rendered in isolation, but in production the editor always
+  // supplies a value so the resolveTheme call is skipped.
+  const theme = useEditorTheme();
   const role = nodeData.role ?? 'compute';
   const roleColors = theme.nodes[role] ?? theme.nodes.compute;
 
@@ -63,13 +67,7 @@ export const CustomDiagramNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div
-      style={{
-        position: 'relative',
-        filter: selected
-          ? `drop-shadow(0 0 0 ${accentColor}) drop-shadow(0 0 8px ${accentColor}55)`
-          : undefined,
-        transition: 'filter 0.15s ease',
-      }}
+      style={{ position: 'relative' }}
     >
       <Handle type="target" position={Position.Top} id="top" style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} id="right" style={{ opacity: 0 }} />
@@ -309,8 +307,6 @@ export const CustomDiagramNode = memo(({ data, selected }: NodeProps) => {
           shape={shape}
         />
       )}
-
-      <style>{`@keyframes ping { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(2.2); opacity: 0; } }`}</style>
     </div>
   );
 });
@@ -320,7 +316,7 @@ CustomDiagramNode.displayName = 'CustomDiagramNode';
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 /** Small filled disc at the four midpoints — the architectural "connector" tell. */
-function ConnectorDots({
+const ConnectorDots = memo(function ConnectorDots({
   color,
   inset = 0,
 }: {
@@ -349,9 +345,9 @@ function ConnectorDots({
       <span style={e} />
     </>
   );
-}
+});
 
-function PulsingDot({ color, accentColor }: { color: string; accentColor: string }) {
+const PulsingDot = memo(function PulsingDot({ color, accentColor }: { color: string; accentColor: string }) {
   return (
     <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span
@@ -368,9 +364,9 @@ function PulsingDot({ color, accentColor }: { color: string; accentColor: string
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor }} />
     </div>
   );
-}
+});
 
-function TechBadge({ label, color }: { label: string; color: string }) {
+const TechBadge = memo(function TechBadge({ label, color }: { label: string; color: string }) {
   return (
     <div
       style={{
@@ -391,9 +387,19 @@ function TechBadge({ label, color }: { label: string; color: string }) {
       {label}
     </div>
   );
+});
+
+/**
+ * Memoized 1px selection ring. `box-shadow` triggers a paint pass on the
+ * node every frame the value toggles, but only the selected node paints —
+ * other nodes reuse their cached layer. The function form returns a
+ * stable 'none' string for the unselected case so React diffs cheaply.
+ */
+function useSelectionOutline(selected: boolean, color: string): string {
+  return selected ? `0 0 0 1px ${color}` : 'none';
 }
 
-function IconChip({
+const IconChip = memo(function IconChip({
   iconDef,
   iconColor,
   accentColor,
@@ -414,61 +420,58 @@ function IconChip({
   if (!hasNativeNodes && iconDef.source !== 'lucide' && iconDef.source !== 'tabler') {
     return null;
   }
+  // The resolved React component is attached to the def at module load
+  // (see `registry.ts`). Reading it here avoids re-running the Lucide /
+  // Tabler name lookup on every render.
+  const isLucide = iconDef.source === 'lucide';
+  const isTabler = iconDef.source === 'tabler';
+  const Comp = isLucide || isTabler ? iconDef.component : null;
   const innerOffset = (chipSize - size) / 2;
-  // Icon from a third-party React-component library (Lucide, Tabler) — render
-  // the component directly. Otherwise fall back to the native `nodes` painter.
-  const LucideIcon = iconDef.source === 'lucide' ? getLucideIcon(iconDef.name) : null;
-  const TablerIconComp =
-    iconDef.source === 'tabler' ? getTablerIcon(iconDef.name) : null;
+  // Stable chip background style — `chipSize` is a primitive so this is
+  // recomputed cheaply, and the inner `<svg>` / Lucide component is what
+  // actually re-renders.
+  const chipStyle: React.CSSProperties = {
+    width: chipSize,
+    height: chipSize,
+    borderRadius: 9,
+    background: `${accentColor}24`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    position: 'relative',
+  };
+  const iconWrapperStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: innerOffset,
+    left: innerOffset,
+  };
   return (
-    <div
-      style={{
-        width: chipSize,
-        height: chipSize,
-        borderRadius: 9,
-        background: `${accentColor}24`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        position: 'relative',
-      }}
-    >
-      {LucideIcon ? (
-        <LucideIcon
+    <div style={chipStyle}>
+      {Comp ? (
+        <Comp
           size={size}
           color={iconColor}
-          style={{ position: 'absolute', top: innerOffset, left: innerOffset }}
-        />
-      ) : TablerIconComp ? (
-        <TablerIconComp
-          size={size}
-          color={iconColor}
-          stroke={1.5}
-          style={{ position: 'absolute', top: innerOffset, left: innerOffset }}
+          stroke={isTabler ? 1.5 : undefined}
+          style={iconWrapperStyle}
         />
       ) : (
         <svg
           viewBox={iconDef.viewBox || '0 0 24 24'}
           width={size}
           height={size}
-          style={{
-            position: 'absolute',
-            top: innerOffset,
-            left: innerOffset,
-            fill: iconColor,
-          }}
+          style={{ ...iconWrapperStyle, fill: iconColor }}
         >
           <IconShapes def={iconDef} currentColor={false} />
         </svg>
       )}
     </div>
   );
-}
+});
 
 // ─── 1. Bento Card ──────────────────────────────────────────────────────────
 
-function BentoCard(props: {
+const BentoCard = memo(function BentoCard(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -487,6 +490,7 @@ function BentoCard(props: {
   accentColor: string;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, showIcon, title, hasSubtitle, subtitle, badge, pulsing, selected, accentColor } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -500,7 +504,7 @@ function BentoCard(props: {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <ConnectorDots color={borderColor} />
@@ -543,11 +547,11 @@ function BentoCard(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── 2. Data Cylinder ───────────────────────────────────────────────────────
 
-function DataCylinder(props: {
+const DataCylinder = memo(function DataCylinder(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -564,6 +568,7 @@ function DataCylinder(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, titleColor, subtitleColor, iconColor, iconDef, showIcon, title, hasSubtitle, subtitle, badge, pulsing, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -577,7 +582,7 @@ function DataCylinder(props: {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       {/* Top + bottom hairlines that suggest the cylinder bands */}
@@ -610,11 +615,11 @@ function DataCylinder(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── 3. Event Stream ────────────────────────────────────────────────────────
 
-function EventStream(props: {
+const EventStream = memo(function EventStream(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -632,6 +637,7 @@ function EventStream(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, titleColor, subtitleColor, iconColor, iconDef, showIcon, title, hasSubtitle, subtitle, tags, badge, pulsing, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   const topicLabels = tags.length > 0 ? tags.slice(0, 3) : ['topic'];
   return (
     <div
@@ -646,7 +652,7 @@ function EventStream(props: {
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <ConnectorDots color={borderColor} />
@@ -696,11 +702,11 @@ function EventStream(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── 4. Serverless Function ─────────────────────────────────────────────────
 
-function ServerlessFunction(props: {
+const ServerlessFunction = memo(function ServerlessFunction(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -715,6 +721,7 @@ function ServerlessFunction(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, title, hasSubtitle, subtitle, badge, pulsing, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -728,7 +735,7 @@ function ServerlessFunction(props: {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <ConnectorDots color={borderColor} />
@@ -767,11 +774,11 @@ function ServerlessFunction(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── 5. User Avatar ─────────────────────────────────────────────────────────
 
-function UserAvatar(props: {
+const UserAvatar = memo(function UserAvatar(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -784,6 +791,7 @@ function UserAvatar(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, title, hasSubtitle, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -797,7 +805,7 @@ function UserAvatar(props: {
         display: 'flex',
         alignItems: 'center',
         gap: 14,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <ConnectorDots color={borderColor} />
@@ -840,11 +848,11 @@ function UserAvatar(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── 6. Tier Card ───────────────────────────────────────────────────────────
 
-function TierCard(props: {
+const TierCard = memo(function TierCard(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -857,6 +865,7 @@ function TierCard(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, title, hasSubtitle, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -867,7 +876,7 @@ function TierCard(props: {
         border: `${borderWidth}px dashed ${borderColor}`,
         borderRadius,
         padding: '10px 16px',
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <div
@@ -887,11 +896,11 @@ function TierCard(props: {
       )}
     </div>
   );
-}
+});
 
 // ─── 7. Gateway Ribbon ──────────────────────────────────────────────────────
 
-function GatewayRibbon(props: {
+const GatewayRibbon = memo(function GatewayRibbon(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -909,6 +918,7 @@ function GatewayRibbon(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, showIcon, title, hasSubtitle, subtitle, badge, pulsing, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -922,7 +932,7 @@ function GatewayRibbon(props: {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <ConnectorDots color={borderColor} />
@@ -995,11 +1005,11 @@ function GatewayRibbon(props: {
       </div>
     </div>
   );
-}
+});
 
 // ─── Legacy shapes (kept so older sample diagrams still render) ─────────────
 
-function LegacyCylinder(props: {
+const LegacyCylinder = memo(function LegacyCylinder(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1013,6 +1023,7 @@ function LegacyCylinder(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1026,7 +1037,7 @@ function LegacyCylinder(props: {
         padding: '12px 16px',
         backgroundColor: bgColor,
         border: `${borderWidth}px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <div
@@ -1087,9 +1098,9 @@ function LegacyCylinder(props: {
       </div>
     </div>
   );
-}
+});
 
-function LegacyQueueBuffer(props: {
+const LegacyQueueBuffer = memo(function LegacyQueueBuffer(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1103,6 +1114,7 @@ function LegacyQueueBuffer(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1115,7 +1127,7 @@ function LegacyQueueBuffer(props: {
         padding: '10px 16px',
         backgroundColor: bgColor,
         border: `${borderWidth}px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
       }}
     >
       <div
@@ -1170,9 +1182,9 @@ function LegacyQueueBuffer(props: {
       </div>
     </div>
   );
-}
+});
 
-function LegacyBrowserWindow(props: {
+const LegacyBrowserWindow = memo(function LegacyBrowserWindow(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1186,6 +1198,7 @@ function LegacyBrowserWindow(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1194,7 +1207,7 @@ function LegacyBrowserWindow(props: {
         borderRadius,
         backgroundColor: bgColor,
         border: `${borderWidth}px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
@@ -1247,9 +1260,9 @@ function LegacyBrowserWindow(props: {
       </div>
     </div>
   );
-}
+});
 
-function LegacyMobileDevice(props: {
+const LegacyMobileDevice = memo(function LegacyMobileDevice(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1262,6 +1275,7 @@ function LegacyMobileDevice(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1270,7 +1284,7 @@ function LegacyMobileDevice(props: {
         borderRadius: 14,
         backgroundColor: bgColor,
         border: `${borderWidth}px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
         padding: 12,
         display: 'flex',
         flexDirection: 'column',
@@ -1303,9 +1317,9 @@ function LegacyMobileDevice(props: {
       <div style={{ width: 24, height: 2, background: borderColor, borderRadius: 2, margin: '0 auto', opacity: 0.4 }} />
     </div>
   );
-}
+});
 
-function LegacyCloud(props: {
+const LegacyCloud = memo(function LegacyCloud(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1319,6 +1333,7 @@ function LegacyCloud(props: {
   selected: boolean;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, selected } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1327,7 +1342,7 @@ function LegacyCloud(props: {
         borderRadius,
         backgroundColor: bgColor,
         border: `${borderWidth}px dashed ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
         padding: 14,
         display: 'flex',
         alignItems: 'center',
@@ -1356,13 +1371,14 @@ function LegacyCloud(props: {
       </div>
     </div>
   );
-}
+});
 
-function LegacyNote(props: {
+const LegacyNote = memo(function LegacyNote(props: {
   title: string;
   subtitle?: string;
   selected: boolean;
 }) {
+  const outline = useSelectionOutline(props.selected, '#FBBF24');
   return (
     <div
       style={{
@@ -1371,7 +1387,7 @@ function LegacyNote(props: {
         borderRadius: 8,
         backgroundColor: '#3F2C00',
         border: `1px solid #FBBF24`,
-        boxShadow: props.selected ? `0 0 0 1px #FBBF24` : 'none',
+        boxShadow: outline,
         padding: 12,
         position: 'relative',
       }}
@@ -1405,9 +1421,9 @@ function LegacyNote(props: {
       )}
     </div>
   );
-}
+});
 
-function LegacyRoundedCard(props: {
+const LegacyRoundedCard = memo(function LegacyRoundedCard(props: {
   bgColor: string;
   borderColor: string;
   borderWidth: number;
@@ -1425,6 +1441,7 @@ function LegacyRoundedCard(props: {
   shape: string;
 }) {
   const { bgColor, borderColor, borderWidth, borderRadius, titleColor, subtitleColor, iconColor, iconDef, title, subtitle, badge, pulsing, selected, accentColor, shape } = props;
+  const outline = useSelectionOutline(selected, borderColor);
   return (
     <div
       style={{
@@ -1432,7 +1449,7 @@ function LegacyRoundedCard(props: {
         minHeight: 76,
         backgroundColor: bgColor,
         border: `${borderWidth}px solid ${borderColor}`,
-        boxShadow: selected ? `0 0 0 1px ${borderColor}` : 'none',
+        boxShadow: outline,
         borderRadius: shape === 'pill' ? 999 : shape === 'hexagon' ? 4 : shape === 'diamond' ? 4 : borderRadius,
         padding: shape === 'pill' ? '10px 22px' : '12px 16px',
         display: 'flex',
@@ -1481,4 +1498,4 @@ function LegacyRoundedCard(props: {
       </div>
     </div>
   );
-}
+});

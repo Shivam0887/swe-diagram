@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 
 type EdgeAnimationSpeed = 'slow' | 'normal' | 'fast';
 type EdgeAnimationType = 'particles' | 'dash_flow' | 'pulse';
@@ -13,19 +13,19 @@ const SPEED_SEC: Record<EdgeAnimationSpeed, string> = {
 
 /**
  * SVG animation overlay for an edge path. Three visual styles:
- *   - 'particles' (default): dot flow with glow underlay.
- *   - 'dash_flow': marching-ants on the stroke.
- *   - 'pulse': opacity breathes rhythmically.
+ *   - 'particles' (default): dot flow with glow underlay. Renders an
+ *     extra `<svg>` here because SMIL `<animateMotion>` follows a path.
+ *   - 'dash_flow': marching-ants on the stroke. The keyframes live in
+ *     globals.css (`.edge-anim-dash-flow`); the parent edge component
+ *     applies the class to its path via inline `style.animation` and the
+ *     `--edge-anim-dur` custom property for speed.
+ *   - 'pulse': opacity breathes rhythmically. Same pattern as dash_flow.
  *
- * For 'particles' the parent edge renders a separate overlay `<svg>` so the
- * animateMotion can move along `pathD`. For 'dash_flow' and 'pulse' the
- * actual stroke element is animated via a CSS keyframes rule injected
- * into the document head — the parent edge must add a stable id to its
- * stroke path and pass the same id here.
+ * The 'dash_flow' and 'pulse' branches return `null` so they don't add
+ * DOM; the actual animation runs on the path the parent already drew.
  */
-export function EdgeAnimationOverlay({
+export const EdgeAnimationOverlay = memo(function EdgeAnimationOverlay({
   pathD,
-  edgeId,
   type = 'particles',
   speed = 'normal',
   flowColor = '#FF5A1F',
@@ -51,36 +51,38 @@ export function EdgeAnimationOverlay({
     );
   }
 
+  // dash_flow / pulse are applied directly on the parent's path stroke via
+  // the CSS class + --edge-anim-dur custom property. No overlay DOM needed.
+  return null;
+});
+
+/**
+ * Build the `style` fragment the parent edge should pass to `<BaseEdge>`
+ * for 'dash_flow' and 'pulse' animations. Returns `null` for 'particles',
+ * in which case the overlay's SVG handles the animation.
+ */
+export function edgeAnimationStyle(
+  type: EdgeAnimationType,
+  speed: EdgeAnimationSpeed,
+): React.CSSProperties | null {
   if (type === 'dash_flow') {
-    // Inject a scoped keyframe rule once per edge id. We use a stable id
-    // (the React Flow edge id) so multiple edges get independent timings.
-    const styleId = `dash-flow-style-${edgeId}`;
-    return (
-      <>
-        <svg className="overflow-visible pointer-events-none absolute inset-0" style={{ display: 'none' }}>
-          <style>{`#${styleId} { animation: ${styleId}-march ${speedSec} linear infinite; } @keyframes ${styleId}-march { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -20; } }`}</style>
-        </svg>
-        {/* The parent edge path must include `id={styleId}` and
-            `strokeDasharray="6 4"` to read the marching effect. */}
-      </>
-    );
+    return {
+      animation: `dash-flow-march var(--edge-anim-dur, ${SPEED_SEC[speed]}) linear infinite`,
+    };
   }
-
   if (type === 'pulse') {
-    const styleId = `pulse-edge-style-${edgeId}`;
-    return (
-      <>
-        <svg className="overflow-visible pointer-events-none absolute inset-0" style={{ display: 'none' }}>
-          <style>{`#${styleId} { animation: ${styleId}-pulse ${speedSec} ease-in-out infinite; } @keyframes ${styleId}-pulse { 0% { opacity: 0.3; } 50% { opacity: 1.0; } 100% { opacity: 0.3; } }`}</style>
-        </svg>
-      </>
-    );
+    return {
+      animation: `edge-pulse var(--edge-anim-dur, ${SPEED_SEC[speed]}) ease-in-out infinite`,
+    };
   }
-
   return null;
 }
 
-/** The id we use to scope per-edge animation styles + the path element itself. */
+/**
+ * @deprecated Kept for compatibility with callers that still want a
+ * stable id (none in the current codebase). The new `edgeAnimationStyle`
+ * applies the animation directly to the path, so no id is needed.
+ */
 export function edgeAnimationPathId(edgeId: string, type: EdgeAnimationType): string | null {
   if (type === 'dash_flow') return `dash-flow-style-${edgeId}`;
   if (type === 'pulse') return `pulse-edge-style-${edgeId}`;

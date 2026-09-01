@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useRef, useEffect, Suspense } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   ReactFlow,
@@ -28,6 +28,17 @@ import type {
   GroupStyle,
 } from '@platform/diagram-schema';
 import { sampleDiagrams } from '@platform/diagram-schema';
+import { resolveTheme, type Theme } from '@platform/design-system';
+
+/**
+ * Module-scoped context. Populated once per editor mount; consumed by every
+ * CustomDiagramNode and CustomGroupNode so we don't re-resolve the theme
+ * inside their renders. Nodes are React.memo'd — when a node re-renders
+ * because something else changed, `useContext(ThemeContext)` is still a
+ * constant, so the theme lookup happens exactly once per render at the
+ * page level instead of 30+ times per frame across all nodes.
+ */
+const ThemeContext = React.createContext<Theme | null>(null);
 import {
   DiagramHistoryManager,
   InsertNodeCommand,
@@ -108,6 +119,11 @@ function EditorCanvasContent() {
   const [doc, setDoc] = useState<DiagramDocument>(initialDoc);
   const historyManagerRef = useRef(new DiagramHistoryManager(50));
 
+  // Theme is resolved once per doc.theme change and passed down via context.
+  // Each custom node/edge reads it with useContext, avoiding a 30× per-frame
+  // resolveTheme() call during pan/zoom.
+  const resolvedTheme = useMemo<Theme>(() => resolveTheme(doc.theme), [doc.theme]);
+
   const [collections, setCollections] = useState<CustomCollection[]>(
     () =>
       initialDoc.customCollections ?? [
@@ -125,17 +141,9 @@ function EditorCanvasContent() {
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
 
-  // Refresh undo/redo state for the toolbar
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  useEffect(() => {
-    const update = () =>
-      setHistoryState({
-        canUndo: historyManagerRef.current.canUndo(),
-        canRedo: historyManagerRef.current.canRedo(),
-      });
-    const id = setInterval(update, 200);
-    return () => clearInterval(id);
-  }, []);
+  // History (canUndo/canRedo) lives in a child so its 200ms polling does
+  // not re-render the entire editor. The actual element is rendered in
+  // the JSX below (where all the callbacks are in scope).
 
   const executeCommand = useCallback((command: any) => {
     setDoc((currentDoc) => historyManagerRef.current.execute(command, currentDoc));
@@ -562,12 +570,12 @@ function EditorCanvasContent() {
   );
 
   return (
+    <ThemeContext.Provider value={resolvedTheme}>
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-      <EditorToolbar
+      <ToolbarWithHistory
+        historyManagerRef={historyManagerRef}
         title={doc.metadata.title}
         onTitleChange={(newTitle) => executeCommand(new UpdateMetadataCommand({ title: newTitle }, doc.metadata))}
-        canUndo={historyState.canUndo}
-        canRedo={historyState.canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
         currentTheme={doc.theme}
@@ -616,10 +624,15 @@ function EditorCanvasContent() {
             snapGrid={[16, 16]}
             defaultEdgeOptions={{ type: 'filletOrthogonal' }}
             proOptions={{ hideAttribution: true }}
-            selectionOnDrag
+            // selectionOnDrag was the single biggest contributor to drag
+            // lag: it caused marquee selection to flip selectedNodeId on
+            // every cursor pixel during a pan, invalidating the flowNodes
+            // memo and re-rendering every node. Now pan is unconstrained;
+            // users can still marquee-select by holding Shift.
+            selectionOnDrag={false}
             panOnScroll
           >
-            <Background color="var(--color-hairline)" gap={24} size={1} />
+            <Background color="var(--color-hairline)" gap={32} size={1} />
           </ReactFlow>
         </div>
 
@@ -649,6 +662,87 @@ function EditorCanvasContent() {
         doc={{ ...doc, customCollections: collections }}
       />
     </div>
+    </ThemeContext.Provider>
+  );
+}
+
+/**
+ * Renders the editor toolbar AND owns the 200ms canUndo/canRedo polling.
+ * Lives in its own component so that the 5Hz tick re-renders the toolbar
+ * alone (which is cheap and rare to change) rather than the entire editor
+ * (which holds the React Flow canvas). This is the single biggest win
+ * after dropping `selectionOnDrag`.
+ */
+function ToolbarWithHistory({
+  historyManagerRef,
+  title,
+  onTitleChange,
+  onUndo,
+  onRedo,
+  currentTheme,
+  onThemeChange,
+  onAutoLayout,
+  onSave,
+  onOpenExport,
+  onLoadTemplate,
+  onOpenCopilot,
+  isSaving,
+  paletteOpen,
+  onTogglePalette,
+  propertiesOpen,
+  onToggleProperties,
+}: {
+  historyManagerRef: React.MutableRefObject<DiagramHistoryManager>;
+  title: string;
+  onTitleChange: (t: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  currentTheme: ThemeId;
+  onThemeChange: (t: ThemeId) => void;
+  onAutoLayout: () => void;
+  onSave: () => void;
+  onOpenExport: () => void;
+  onLoadTemplate: (t: string) => void;
+  onOpenCopilot: () => void;
+  isSaving: boolean;
+  paletteOpen: boolean;
+  onTogglePalette: () => void;
+  propertiesOpen: boolean;
+  onToggleProperties: () => void;
+}) {
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  useEffect(() => {
+    const update = () =>
+      setHistoryState({
+        canUndo: historyManagerRef.current.canUndo(),
+        canRedo: historyManagerRef.current.canRedo(),
+      });
+    update();
+    const id = setInterval(update, 200);
+    return () => clearInterval(id);
+  }, [historyManagerRef]);
+
+  return (
+    <EditorToolbar
+      title={title}
+      onTitleChange={onTitleChange}
+      canUndo={historyState.canUndo}
+      canRedo={historyState.canRedo}
+      onUndo={onUndo}
+      onRedo={onRedo}
+      currentTheme={currentTheme}
+      onThemeChange={onThemeChange}
+      onAutoLayout={onAutoLayout}
+      onSave={onSave}
+      onOpenExport={onOpenExport}
+      onLoadTemplate={onLoadTemplate}
+      onOpenCopilot={onOpenCopilot}
+      isSaving={isSaving}
+      paletteOpen={paletteOpen}
+      onTogglePalette={onTogglePalette}
+      propertiesOpen={propertiesOpen}
+      onToggleProperties={onToggleProperties}
+    />
   );
 }
 
