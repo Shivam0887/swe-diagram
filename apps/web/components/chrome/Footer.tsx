@@ -18,7 +18,6 @@ export function Footer() {
         }}
       >
         <FooterCol title="Product">
-          <FooterLink href="/gallery">Gallery</FooterLink>
           <FooterLink href="/editor">Editor</FooterLink>
           <FooterLink href="/dashboard">Dashboard</FooterLink>
           <FooterLink href="/api-docs">API</FooterLink>

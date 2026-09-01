@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { sampleDiagrams } from '@platform/diagram-schema';
 import { Send, Copy, Check, Terminal, KeyRound, Sparkles, ArrowUpRight } from 'lucide-react';
 import { Header } from '../../components/chrome/Header';
 import { Footer } from '../../components/chrome/Footer';
@@ -14,6 +13,30 @@ type EndpointDef = {
   defaultBody?: string;
 };
 
+/**
+ * Inline minimal example documents. Kept literal (no server fetch) so
+ * the page is fully static and doesn't need a Mongo connection. They
+ * match the schema but are intentionally tiny — enough to exercise
+ * each endpoint.
+ */
+const EXAMPLE_DOCUMENT = {
+  schemaVersion: '1.0',
+  rendererVersion: '1.0.0',
+  theme: 'editorial-dark',
+  nodes: [
+    { id: 'gw', type: 'api_gateway', position: { x: 0, y: 0 }, data: { title: 'Gateway' } },
+    { id: 'ord', type: 'service', position: { x: 0, y: 0 }, data: { title: 'Orders' } },
+    { id: 'pg', type: 'database', position: { x: 0, y: 0 }, data: { title: 'Postgres' } },
+  ],
+  edges: [
+    { source: 'gw', target: 'ord' },
+    { source: 'ord', target: 'pg' },
+  ],
+  groups: [],
+  annotations: [],
+  metadata: { title: 'Three-tier', description: 'minimal example', tags: [] },
+};
+
 const ENDPOINTS: EndpointDef[] = [
   {
     method: 'POST',
@@ -21,7 +44,7 @@ const ENDPOINTS: EndpointDef[] = [
     title: 'Render Diagram → SVG',
     description: 'Accepts canonical Diagram IR JSON and returns deterministic SVG vector output.',
     defaultBody: JSON.stringify(
-      { document: sampleDiagrams['aws-three-tier-elasticache'], theme: 'polished-dark' },
+      { document: EXAMPLE_DOCUMENT, theme: 'editorial-dark' },
       null,
       2
     ),
@@ -32,7 +55,7 @@ const ENDPOINTS: EndpointDef[] = [
     title: 'Auto Layout (ELK)',
     description: 'Computes layered orthogonal coordinates and waypoints for any Diagram IR.',
     defaultBody: JSON.stringify(
-      { document: sampleDiagrams['microservices-ecommerce'], direction: 'horizontal', nodeSpacing: 56 },
+      { document: EXAMPLE_DOCUMENT, direction: 'horizontal', nodeSpacing: 56 },
       null,
       2
     ),
@@ -43,22 +66,34 @@ const ENDPOINTS: EndpointDef[] = [
     title: 'AI Architecture Generator',
     description: 'Compiles natural language architectural prompts into canonical Diagram IR.',
     defaultBody: JSON.stringify(
-      { prompt: 'Real-time event streaming pipeline with Kafka, Redis cache, and S3 object storage', theme: 'polished-dark' },
+      { prompt: 'Real-time event streaming pipeline with Kafka, Redis cache, and S3 object storage', theme: 'editorial-dark' },
       null,
       2
     ),
   },
-  { method: 'GET', path: '/api/v1/diagrams', title: 'List Stored Diagrams', description: 'Retrieves all persisted diagrams in the database.' },
+  {
+    method: 'GET',
+    path: '/api/v1/diagrams?projectId=prj_xxx',
+    title: 'List Diagrams in Project',
+    description: 'Retrieves every diagram under the supplied project id.',
+  },
   {
     method: 'POST',
     path: '/api/v1/diagrams',
     title: 'Create Diagram Record',
-    description: 'Validates and saves a new DiagramDocument into the persistence repository.',
+    description: 'Validates and saves a new DiagramDocument under an existing project.',
     defaultBody: JSON.stringify(
-      { name: 'Distributed Rate Limiting Cluster', description: 'Redis token bucket rate limiter architecture', document: sampleDiagrams['caching-rate-limiter'] },
+      { projectId: 'prj_xxx', name: 'Three-tier', description: 'minimal example', document: EXAMPLE_DOCUMENT },
       null,
       2
     ),
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/projects',
+    title: 'Create Project',
+    description: 'Creates a new project container; the response id is then used to attach diagrams.',
+    defaultBody: JSON.stringify({ name: 'My project', description: 'optional' }, null, 2),
   },
 ];
 

@@ -1,12 +1,12 @@
 import Link from 'next/link';
 
 interface HeaderProps {
-  active?: 'gallery' | 'editor' | 'api' | 'docs' | null;
+  active?: 'dashboard' | 'editor' | 'api' | 'docs' | null;
   rightSlot?: React.ReactNode;
 }
 
 const NAV: { id: NonNullable<HeaderProps['active']>; href: string; label: string }[] = [
-  { id: 'gallery', href: '/gallery', label: 'Gallery' },
+  { id: 'dashboard', href: '/dashboard', label: 'Dashboard' },
   { id: 'editor', href: '/editor', label: 'Editor' },
   { id: 'api', href: '/api-docs', label: 'API' },
 ];

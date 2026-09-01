@@ -33,7 +33,12 @@ interface EditorToolbarProps {
   onAutoLayout?: () => void;
   onSave: () => void;
   onOpenExport: () => void;
-  onLoadTemplate: (t: string) => void;
+  /**
+   * No-op kept for backward compatibility after the gallery/templates
+   * removal. The editor's template dropdown is gone; this prop is no
+   * longer surfaced in the UI.
+   */
+  onLoadTemplate?: (t: string) => void;
   onOpenCopilot: () => void;
   isSaving: boolean;
   /** Show or hide the left component palette. */
@@ -77,7 +82,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onAutoLayout,
   onSave,
   onOpenExport,
-  onLoadTemplate,
   onOpenCopilot,
   isSaving,
   paletteOpen,
@@ -86,7 +90,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onToggleProperties,
 }) => {
   const [themeOpen, setThemeOpen] = useState(false);
-  const [templateOpen, setTemplateOpen] = useState(false);
   const currentThemeName = ALL_THEMES.find((t) => t.id === currentTheme)?.name ?? currentTheme;
 
   return (
@@ -253,7 +256,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           <Button
             onPress={() => {
               setThemeOpen((v) => !v);
-              setTemplateOpen(false);
             }}
             variant="ghost"
             size="sm"
@@ -300,56 +302,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           )}
         </div>
 
-        {/* Template selector */}
-        <div style={{ position: 'relative' }}>
-          <Button
-            onPress={() => {
-              setTemplateOpen((v) => !v);
-              setThemeOpen(false);
-            }}
-            variant="ghost"
-            size="sm"
-            style={toolbarBtnStyle}
-          >
-            templates <ChevronDown size={12} />
-          </Button>
-          {templateOpen && (
-            <div
-              role="menu"
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                right: 0,
-                minWidth: 240,
-                background: 'var(--color-bg-raised)',
-                border: '1px solid var(--color-hairline)',
-                borderRadius: 'var(--radius-md)',
-                padding: 4,
-                zIndex: 50,
-              }}
-            >
-              {['aws-three-tier-elasticache', 'kafka-exactly-once', 'cqrs-event-sourcing'].map((key) => (
-                <Button
-                  key={key}
-                  onPress={() => {
-                    onLoadTemplate(key);
-                    setTemplateOpen(false);
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  style={{
-                    ...toolbarBtnStyle,
-                    width: '100%',
-                    justifyContent: 'flex-start',
-                    color: 'var(--color-ink)',
-                  }}
-                >
-                  {key.replace(/-/g, ' ')}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Template selector removed when the gallery was deleted.
+            Users now start from a blank canonical document and save their
+            work to a real project. */}
 
         <span title="AI co-pilot" style={{ display: 'inline-flex' }}>
           <Button

@@ -30,30 +30,36 @@
 .react-flow__background path { pointer-events: none; }
 
 /* ========================================================================
-   Editorial design tokens — single source of truth for chrome + canvas
-   Near-monochrome dark with a single vermillion accent (#FF5A1F).
-   All visual decisions live here. Components consume var(--…) only.
+   Design tokens — 60-30-10 dark palette.
+
+   60 = primary surface (bulk of every screen)
+   30 = secondary surface (structural rhythm, dividers, hairlines, wells)
+   10 = accent (used sparingly for emphasis only)
+
+   All chrome + canvas reads from var(--…) only. The var names below are
+   the same ones every page already uses; this is a palette swap, not a
+   rename, so the rest of the codebase needs no changes.
    ======================================================================== */
 
 @theme {
-  /* Surfaces */
-  --color-bg: #0B0B0C;
-  --color-bg-raised: #131315;
-  --color-bg-sunken: #08080A;
+  /* 60 — primary surface */
+  --color-bg: #0E0E10;
+  --color-bg-raised: #15151A;
+  --color-bg-sunken: #08080B;
 
-  /* Ink (text + icons) */
-  --color-ink: #E8E2D5;
-  --color-ink-2: #8C8A85;
-  --color-ink-3: #4A4944;
+  /* 30 — secondary surface (hairlines, dividers, soft wells) */
+  --color-hairline: #1B1B22;
+  --color-hairline-strong: #2A2A33;
 
-  /* Rules */
-  --color-hairline: #1A1A1C;
-  --color-hairline-strong: #26262A;
+  /* Ink (text + icons) — sits on the 60/30 surfaces */
+  --color-ink: #ECEAE3;
+  --color-ink-2: #98959A;
+  --color-ink-3: #5A5860;
 
-  /* Accent — single, used sparingly */
-  --color-accent: #FF5A1F;
-  --color-accent-glow: rgba(255, 90, 31, 0.18);
-  --color-accent-soft: rgba(255, 90, 31, 0.08);
+  /* 10 — single warm accent, used sparingly */
+  --color-accent: #FF6A33;
+  --color-accent-glow: rgba(255, 106, 51, 0.20);
+  --color-accent-soft: rgba(255, 106, 51, 0.08);
 }
 
 :root {
@@ -385,20 +391,20 @@ body {
   --divider: var(--color-hairline);
   --segment: var(--color-hairline-strong);
 
-  /* Foreground stops */
-  --foreground-50: #F4EFE6;
-  --foreground-100: #E8E2D5;
-  --foreground-200: #C9C3B5;
-  --foreground-300: #8C8A85;
-  --foreground-400: #6A6862;
-  --foreground-500: #4A4944;
-  --foreground-600: #36352F;
-  --foreground-700: #26262A;
-  --foreground-800: #1A1A1C;
-  --foreground-900: #131315;
-  --foreground-950: #0B0B0C;
+  /* Foreground stops — 60-30-10 dark ladder */
+  --foreground-50: #F5F3EC;
+  --foreground-100: #ECEAE3;
+  --foreground-200: #C9C7C0;
+  --foreground-300: #98959A;
+  --foreground-400: #76737A;
+  --foreground-500: #5A5860;
+  --foreground-600: #3A3A42;
+  --foreground-700: #2A2A33;
+  --foreground-800: #1B1B22;
+  --foreground-900: #15151A;
+  --foreground-950: #0E0E10;
 
-  /* Accent (single) */
+  /* Accent (single, 10%) */
   --accent: var(--color-accent);
   --accent-foreground: var(--color-bg);
   --accent-soft: var(--color-accent-soft);
@@ -408,13 +414,13 @@ body {
   --focus: var(--color-accent);
   --link: var(--color-accent);
 
-  /* Status */
-  --success: #5EEAD4;
-  --success-foreground: #0B0B0C;
-  --warning: #E8C580;
-  --warning-foreground: #0B0B0C;
-  --danger: #FF5A1F;
-  --danger-foreground: #0B0B0C;
+  /* Status — derived from the 10% hue family so the 60-30-10 still reads */
+  --success: #6EE7B7;
+  --success-foreground: #0E0E10;
+  --warning: #F4C56B;
+  --warning-foreground: #0E0E10;
+  --danger: #FF6A33;
+  --danger-foreground: #0E0E10;
 }
 
 /* --- React Flow overrides (match editorial chrome) ------------------- */
@@ -430,7 +436,7 @@ body {
   border: 1px solid var(--color-hairline) !important;
   border-radius: var(--radius-md) !important;
 }
-.react-flow__minimap-mask { fill: rgba(11, 11, 12, 0.85) !important; }
+.react-flow__minimap-mask { fill: rgba(14, 14, 16, 0.85) !important; }
 .react-flow__minimap-node { fill: var(--color-ink-2) !important; stroke: var(--color-ink-2) !important; }
 .react-flow__controls {
   background: var(--color-bg-raised) !important;

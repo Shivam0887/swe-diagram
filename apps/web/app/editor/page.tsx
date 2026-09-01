@@ -27,7 +27,6 @@ import type {
   CustomCollection,
   GroupStyle,
 } from '@platform/diagram-schema';
-import { sampleDiagrams } from '@platform/diagram-schema';
 import { resolveTheme, type Theme } from '@platform/design-system';
 
 /**
@@ -106,23 +105,97 @@ function edgeTypeFor(routing: string | undefined): 'filletOrthogonal' | 'bezierC
 // object that ReactFlow's effects can compare against.
 const DEFAULT_EDGE_OPTIONS = { type: 'filletOrthogonal' as const };
 
+/**
+ * The canonical "blank" document. The editor opens with this when no
+ * ?projectId&diagramId is present. Keeping the theme explicit (rather than
+ * `undefined`) means the resolveTheme() call has something stable to read
+ * on first render.
+ */
+function blankDiagramDocument(): DiagramDocument {
+  return {
+    schemaVersion: '1.0',
+    rendererVersion: '1.0.0',
+    theme: 'editorial-dark',
+    nodes: [],
+    edges: [],
+    groups: [],
+    annotations: [],
+    metadata: {
+      title: 'Untitled',
+      description: '',
+      width: 1280,
+      height: 800,
+      tags: [],
+      author: 'agentic / diagrams',
+    },
+  };
+}
+
 function EditorCanvasContent() {
   const reactFlowInstance = useReactFlow();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
-  // Seed from ?doc=<sampleKey> when present, else default
-  const initialDoc = useMemo<DiagramDocument>(() => {
-    const requested = searchParams?.get('doc');
-    if (requested) {
-      const baseKey = requested.split('--')[0]; // strip theme-variant suffix from gallery
-      if (sampleDiagrams[baseKey]) return sampleDiagrams[baseKey];
-    }
-    return sampleDiagrams['aws-three-tier-elasticache'];
+  // Track the project/diagram this editor session is bound to. Pulled from
+  // ?projectId&diagramId on first render. A null pair means "blank doc" —
+  // the user will create a project/diagram on first save.
+  const initialBinding = useMemo(() => {
+    return {
+      projectId: searchParams?.get('projectId') ?? null,
+      diagramId: searchParams?.get('diagramId') ?? null,
+    };
   }, [searchParams]);
 
-  const [doc, setDoc] = useState<DiagramDocument>(initialDoc);
+  /**
+   * A blank canonical document. Used when the editor is opened without
+   * ?projectId&diagramId, while the URL-bound doc is being fetched, and
+   * any time a remote fetch fails.
+   */
+  const blankDoc = useMemo<DiagramDocument>(() => blankDiagramDocument(), []);
+
+  const [doc, setDoc] = useState<DiagramDocument>(blankDoc);
+  const [binding, setBinding] = useState<{ projectId: string | null; diagramId: string | null }>(initialBinding);
+  const [loading, setLoading] = useState<boolean>(Boolean(initialBinding.diagramId));
+  const [loadError, setLoadError] = useState<string | null>(null);
   const historyManagerRef = useRef(new DiagramHistoryManager(50));
+
+  // When the URL has ?projectId&diagramId, fetch the persisted doc and
+  // swap it in. On 404 we leave the blank doc in place and surface a
+  // small error in the toolbar.
+  useEffect(() => {
+    if (!initialBinding.diagramId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/v1/diagrams/${initialBinding.diagramId}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setLoadError(`Diagram not found (${res.status})`);
+          setLoading(false);
+          return;
+        }
+        const body = await res.json();
+        const record = body?.data;
+        if (cancelled) return;
+        if (record?.document) {
+          setDoc(record.document);
+          setBinding({ projectId: record.projectId, diagramId: record.id });
+          if (record.name) {
+            // Keep the metadata title in sync with the record name.
+            setDoc((d) => ({ ...d, metadata: { ...d.metadata, title: record.name } }));
+          }
+        }
+        setLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load diagram');
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialBinding.diagramId]);
 
   // Cached `data` projections for each node/group. Without this, every
   // `flowNodes` rebuild spreads `...node.data` (allocating a fresh
@@ -148,10 +221,9 @@ function EditorCanvasContent() {
   const resolvedTheme = useMemo<Theme>(() => resolveTheme(doc.theme), [doc.theme]);
 
   const [collections, setCollections] = useState<CustomCollection[]>(
-    () =>
-      initialDoc.customCollections ?? [
-        { id: 'col-default', name: 'My Custom Blocks', items: [] },
-      ]
+    () => [
+      { id: 'col-default', name: 'My Custom Blocks', items: [] },
+    ]
   );
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -619,15 +691,11 @@ function EditorCanvasContent() {
     }
   }, [doc]);
 
-  const handleLoadTemplate = useCallback((templateKey: string) => {
-    const templateDoc = sampleDiagrams[templateKey];
-    if (templateDoc) {
-      historyManagerRef.current.clear();
-      setDoc(templateDoc);
-      if (templateDoc.customCollections) setCollections(templateDoc.customCollections);
-      setSelectedNodeId(null);
-      setSelectedEdgeId(null);
-    }
+  const handleLoadTemplate = useCallback((_templateKey: string) => {
+    // Templates were removed when the gallery was deleted. The toolbar's
+    // templates dropdown is gone; this handler is kept as a no-op so the
+    // EditorToolbar's prop type stays valid (it still receives the prop
+    // and just doesn't surface it).
   }, []);
 
   const handleCreateCollection = useCallback((name: string) => {
@@ -674,21 +742,77 @@ function EditorCanvasContent() {
     );
   }, []);
 
+  /**
+   * Save flow:
+   *  1. If the editor isn't yet bound to a project, create an "Untitled"
+   *     project and a diagram in one round-trip (POST /projects, then
+   *     POST /projects/:id/diagrams).
+   *  2. If the editor is bound, PUT /api/v1/diagrams/:id.
+   *  3. On success, push the new ids into the URL so a refresh keeps the
+   *     editor pointed at the same record.
+   */
   const handleSave = useCallback(async () => {
     setIsSaving(true);
+    setLoadError(null);
     try {
       const fullDoc = { ...doc, customCollections: collections };
-      await fetch('/api/v1/diagrams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: doc.metadata.title, description: doc.metadata.description, document: fullDoc }),
-      });
+      const name = doc.metadata.title || 'Untitled';
+      const description = doc.metadata.description;
+
+      if (!binding.diagramId) {
+        // First save. Create project (if needed), then diagram.
+        let projectId = binding.projectId;
+        if (!projectId) {
+          const projectRes = await fetch('/api/v1/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Untitled' }),
+          });
+          if (!projectRes.ok) {
+            throw new Error(`Failed to create project (${projectRes.status})`);
+          }
+          const projectBody = await projectRes.json();
+          projectId = projectBody?.data?.id;
+        }
+        if (!projectId) {
+          throw new Error('No project id returned from server');
+        }
+
+        const diagramRes = await fetch(`/api/v1/projects/${projectId}/diagrams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, document: fullDoc }),
+        });
+        if (!diagramRes.ok) {
+          throw new Error(`Failed to create diagram (${diagramRes.status})`);
+        }
+        const diagramBody = await diagramRes.json();
+        const record = diagramBody?.data;
+        if (record?.id) {
+          setBinding({ projectId: record.projectId ?? projectId, diagramId: record.id });
+          // Push the ids into the URL so a refresh reopens the same record.
+          const url = new URL(window.location.href);
+          url.searchParams.set('projectId', record.projectId ?? projectId);
+          url.searchParams.set('diagramId', record.id);
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        const res = await fetch(`/api/v1/diagrams/${binding.diagramId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, document: fullDoc }),
+        });
+        if (!res.ok) {
+          throw new Error(`Save failed (${res.status})`);
+        }
+      }
     } catch (e) {
       console.error('Failed to save diagram:', e);
+      setLoadError(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setIsSaving(false);
     }
-  }, [doc, collections]);
+  }, [doc, collections, binding]);
 
   const selectedNode = useMemo(
     () => doc.nodes.find((n) => n.id === selectedNodeId) ?? null,

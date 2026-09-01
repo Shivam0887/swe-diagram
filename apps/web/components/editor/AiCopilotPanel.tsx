@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, ArrowRight, Square } from 'lucide-react';
 import { Button, Spinner } from '@heroui/react';
 import type { DiagramDocument, DiagramNode, NodeType, NodeShape } from '@platform/diagram-schema';
-import { sampleDiagrams } from '@platform/diagram-schema';
 import {
   InsertNodeCommand,
   ConnectNodesCommand,
@@ -363,19 +362,9 @@ async function interpret(prompt: string, doc: DiagramDocument): Promise<AgentRes
     };
   }
 
-  // "load <template>" — uses sampleDiagrams
-  const loadMatch = lower.match(/load (?:the )?(\w[\w-]*)(?: template| sample)?/);
-  if (loadMatch) {
-    const key = loadMatch[1];
-    const found = sampleDiagrams[key];
-    if (found) {
-      return {
-        text: `Loaded template "${found.metadata.title}". (Use the templates menu in the toolbar to actually apply it.)`,
-        commands: [],
-      };
-    }
-  }
-
+  // The "load <template>" command was removed when the gallery was
+  // deleted. Templates were sourced from sampleDiagrams; users now start
+  // from a blank canonical document and save to a real project.
   return {
     text: `I'm a simple rule-based agent right now. Try: "add a cache", "add a service between gateway and order", or "rename gateway to edge".`,
     commands: [],

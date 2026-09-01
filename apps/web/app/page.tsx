@@ -2,67 +2,77 @@ import Link from 'next/link';
 import { ArrowRight, Github } from 'lucide-react';
 import { Header } from '../components/chrome/Header';
 import { Footer } from '../components/chrome/Footer';
-import { CursorGlow } from '../components/chrome/CursorGlow';
 import { FigureCaption } from '../components/chrome/FigureCaption';
 import { Meta } from '../components/chrome/Meta';
-import { sampleDiagrams } from '@platform/diagram-schema';
-import { renderDiagram } from '@platform/diagram-renderer';
 
-const STEPS = [
+/**
+ * The seven principles of design composition. Each entry pairs a number
+ * (the mono accent on each card), a title, and a one-sentence body that
+ * the homepage applies to a diagram platform.
+ */
+const PRINCIPLES = [
   {
     n: '01',
-    title: 'Prompt',
-    body: 'Describe the system in natural language. A three-tier checkout, a Kafka fan-out, a rate-limiter with Redis. The agent drafts an initial topology from a canonical schema.',
+    title: 'Emphasis',
+    body: 'One accent. One focal point per screen. The rest of the canvas is silent so the eye lands where it should.',
   },
   {
     n: '02',
-    title: 'Draft',
-    body: 'Every node, edge, and group is a typed primitive. The agent iterates by issuing commands against the same IR you would. Undo and redo apply to its changes too.',
+    title: 'Balance',
+    body: 'Symmetric structure, asymmetric weight. Headers anchor the left; visual artifacts anchor the right.',
   },
   {
     n: '03',
-    title: 'Ship',
-    body: 'The same document compiles to SVG, PNG, and PDF — deterministic, byte-exact, hashable. Render in CI, ship to a CDN, or fork to a new variant.',
+    title: 'Hierarchy',
+    body: 'Four type tiers, no in-between. Display, heading, body, mono — every glyph on the page knows its level.',
+  },
+  {
+    n: '04',
+    title: 'Rhythm',
+    body: 'A 4-px spacing scale, a 96-px section pad, a single 24-px grid gap. Repetition is the cheapest kind of unity.',
+  },
+  {
+    n: '05',
+    title: 'Unity',
+    body: 'Every surface reads from the same tokens. Light the page from a single 60-30-10 palette and the seams disappear.',
+  },
+  {
+    n: '06',
+    title: 'Proportion',
+    body: 'Hero title scales 9vw; section heads scale 5vw; the visual artifact sits at a strict 3:2 aspect ratio.',
+  },
+  {
+    n: '07',
+    title: 'White space',
+    body: 'Empty area is not wasted. Margins are part of the message; padding is part of the structure.',
   },
 ];
 
-const INTEGRATIONS = [
-  'Next.js', 'Vercel', 'Cursor', 'Claude Code', 'VS Code', 'Figma',
-  'React Flow', 'ELK.js', 'Sharp', 'PostgreSQL', 'BullMQ', 'Drizzle',
+/**
+ * The platform stack, top to bottom: from a prompt to a shipped diagram.
+ * Each step is a one-liner; the visual is a typographic card, not an SVG.
+ */
+const STACK = [
+  { n: '01', label: 'Prompt', body: 'Natural-language intent. The agent reads it.' },
+  { n: '02', label: 'Draft', body: 'Typed primitives. Nodes, edges, groups, annotations.' },
+  { n: '03', label: 'IR', body: 'Canonical, Zod-validated, versioned, hashable.' },
+  { n: '04', label: 'Render', body: 'Deterministic SVG. Byte-exact across machines.' },
+  { n: '05', label: 'Export', body: 'SVG, PNG, PDF. Same source, same bytes, every time.' },
+  { n: '06', label: 'Ship', body: 'CI, CDN, fork, variant. Render once, ship everywhere.' },
 ];
 
 export default function HomePage() {
-  // Pre-render three sample diagrams server-side for the gallery preview
-  const sampleKeys = Object.keys(sampleDiagrams).slice(0, 3);
-  const previews = sampleKeys.map((key) => {
-    const doc = sampleDiagrams[key];
-    const result = renderDiagram(doc, { width: 480, height: 320 });
-    return {
-      key,
-      title: doc.metadata.title,
-      description: doc.metadata.description,
-      nodes: doc.nodes.length,
-      theme: doc.theme,
-      svg: result.svg,
-    };
-  });
-
-  // One hero diagram, large
-  const heroDoc = sampleDiagrams['microservices-ecommerce'];
-  const heroRender = renderDiagram(heroDoc, { width: 720, height: 480 });
-
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
-      <CursorGlow />
       <Header />
 
       <main style={{ position: 'relative', zIndex: 1 }}>
-        {/* HERO */}
+        {/* HERO — emphasis, balance, hierarchy */}
         <section className="container" style={{ paddingTop: 96, paddingBottom: 96 }}>
           <div className="enter">
             <Meta
               items={[
-                { label: 'compiler-driven', accent: true },
+                { label: 'composer-driven', accent: true },
                 'open source',
                 'v0.42.1',
                 'canonical 1.0',
@@ -78,9 +88,11 @@ export default function HomePage() {
               maxWidth: 1100,
             }}
           >
-            Diagrams
+            Compose.
             <br />
-            that think.
+            Compile.
+            <br />
+            <span className="t-accent">Ship.</span>
           </h1>
 
           <div
@@ -103,9 +115,10 @@ export default function HomePage() {
                   maxWidth: 520,
                 }}
               >
-                An IR-first diagram platform. Prompt an architecture, watch agents
-                compose it against a canonical schema, and ship the same document
-                as SVG, PNG, or PDF — deterministic, versioned, and hashable.
+                An IR-first diagram platform. Prompt an architecture; the
+                agent composes a canonical DiagramDocument; you ship the
+                same source as SVG, PNG, or PDF — deterministic,
+                versioned, hashable.
               </p>
               <div
                 style={{
@@ -134,91 +147,124 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div
-              style={{
-                position: 'relative',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--color-hairline)',
-                background: 'var(--color-bg-raised)',
-                padding: 16,
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                className="t-mono"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <span className="live-dot" aria-hidden />
-                <span style={{ color: 'var(--color-ink)' }}>LIVE</span>
-                <span style={{ color: 'var(--color-ink-3)' }}>·</span>
-                <span>rendering sample</span>
-              </div>
-              <div
-                style={{
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-bg-sunken)',
-                  border: '1px solid var(--color-hairline)',
-                  padding: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                dangerouslySetInnerHTML={{ __html: heroRender.svg }}
-              />
-            </div>
+            {/* Visual artifact — a CSS-only geometric composition, not a
+                live render. Three nested rounded squares on the 30 tier,
+                one accent dot at the geometric center, the 10% talking
+                through one point of emphasis. */}
+            <Composition />
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
+        {/* PRINCIPLES — emphasis, rhythm, proportion */}
         <section className="container section">
-          <div style={{ marginBottom: 56 }}>
-            <FigureCaption number="01" label="how it works" />
+          <div style={{ marginBottom: 56, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <FigureCaption number="01" label="composition" />
+            <span className="t-mono" style={{ color: 'var(--color-ink-3)' }}>
+              7 principles · 1 palette
+            </span>
           </div>
+
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
               gap: 1,
               background: 'var(--color-hairline)',
               border: '1px solid var(--color-hairline)',
               borderRadius: 'var(--radius-lg)',
               overflow: 'hidden',
             }}
+            className="principles-grid"
           >
-            {STEPS.map((s) => (
+            {PRINCIPLES.map((p, i) => (
               <div
-                key={s.n}
+                key={p.n}
                 style={{
-                  padding: 32,
+                  padding: 28,
                   background: 'var(--color-bg-raised)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  minHeight: 200,
                 }}
               >
                 <div
                   className="t-mono"
                   style={{
-                    marginBottom: 24,
-                    color: 'var(--color-accent)',
+                    color: i === 4 ? 'var(--color-accent)' : 'var(--color-ink-3)',
                     textTransform: 'lowercase',
                   }}
                 >
-                  {s.n} / {s.title.toLowerCase()}
+                  {p.n} / {p.title.toLowerCase()}
                 </div>
                 <h3
                   className="t-h2"
-                  style={{ margin: 0, marginBottom: 12, fontSize: 22 }}
+                  style={{ margin: 0, fontSize: 20 }}
                 >
-                  {s.title}.
+                  {p.title}.
                 </h3>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 14,
-                    lineHeight: 1.65,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: 'var(--color-ink-2)',
+                  }}
+                >
+                  {p.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* STACK — rhythm, unity */}
+        <section className="container section">
+          <div style={{ marginBottom: 48, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <FigureCaption number="02" label="the stack" />
+            <span className="t-mono" style={{ color: 'var(--color-ink-3)' }}>
+              one document · three outputs
+            </span>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 16,
+            }}
+            className="stack-grid"
+          >
+            {STACK.map((s) => (
+              <div
+                key={s.n}
+                className="card"
+                style={{
+                  padding: 24,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div
+                  className="t-mono"
+                  style={{
+                    color: 'var(--color-ink-3)',
+                    textTransform: 'lowercase',
+                  }}
+                >
+                  {s.n} · {s.label.toLowerCase()}
+                </div>
+                <div
+                  className="t-h2"
+                  style={{ margin: 0, fontSize: 18 }}
+                >
+                  {s.label}.
+                </div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    lineHeight: 1.6,
                     color: 'var(--color-ink-2)',
                   }}
                 >
@@ -229,72 +275,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* GALLERY PREVIEW */}
-        <section className="container section">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              marginBottom: 32,
-              gap: 16,
-              flexWrap: 'wrap',
-            }}
-          >
-            <FigureCaption number="02" label="from the gallery" />
-            <Link href="/gallery" className="btn--link">
-              Browse the gallery <ArrowRight size={14} className="arrow" />
-            </Link>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gap: 16,
-            }}
-          >
-            {previews.map((p) => (
-              <Link
-                key={p.key}
-                href={`/editor?doc=${p.key}`}
-                className="card card--hover"
-                style={{
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                }}
-              >
-                <div
-                  style={{
-                    aspectRatio: '4 / 3',
-                    background: 'var(--color-bg-sunken)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    padding: 12,
-                  }}
-                  dangerouslySetInnerHTML={{ __html: p.svg }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-ink)', marginBottom: 4 }}>
-                    {p.title}
-                  </div>
-                  <div className="t-mono" style={{ color: 'var(--color-ink-2)' }}>
-                    {p.nodes} nodes · {p.theme}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* API CONTRACT */}
+        {/* CONTRACT — contrast, hierarchy */}
         <section className="container section">
           <div
             style={{
@@ -336,38 +317,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* INTEGRATIONS */}
-        <section className="container" style={{ padding: '64px 0 0' }}>
-          <div
-            className="t-mono"
-            style={{
-              textAlign: 'center',
-              color: 'var(--color-ink-3)',
-              marginBottom: 24,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              fontSize: 10,
-            }}
-          >
-            fits into your stack
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
-            {INTEGRATIONS.map((name) => (
-              <span key={name} className="chip" style={{ cursor: 'default' }}>
-                {name}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {/* CTA */}
+        {/* CTA — emphasis, white space */}
         <section className="container" style={{ padding: '128px 24px 0' }}>
           <div
             style={{
@@ -385,7 +335,7 @@ export default function HomePage() {
                 fontSize: 'clamp(40px, 6vw, 72px)',
               }}
             >
-              Start compiling.
+              Start composing.
             </h2>
             <p
               style={{
@@ -420,6 +370,135 @@ export default function HomePage() {
       </main>
 
       <Footer />
+
+      <style>{`
+        @media (max-width: 1100px) {
+          .principles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .stack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 640px) {
+          .principles-grid { grid-template-columns: 1fr !important; }
+          .stack-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * Hero visual artifact. Three nested rounded squares, hairline strokes on
+ * the 30 tier, one accent dot at the geometric center. No external
+ * assets, no JS — just CSS variables and absolute positioning.
+ */
+function Composition() {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--color-hairline)',
+        background: 'var(--color-bg-raised)',
+        padding: 16,
+        overflow: 'hidden',
+        aspectRatio: '3 / 2',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        className="t-mono"
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          color: 'var(--color-ink-3)',
+        }}
+      >
+        fig. 01 / artifact
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        <span className="live-dot" aria-hidden />
+        <span className="t-mono" style={{ color: 'var(--color-ink-2)' }}>composed</span>
+      </div>
+      <div
+        style={{
+          position: 'relative',
+          width: '70%',
+          aspectRatio: '1 / 1',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Outer square — 30 tier */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            border: '1px solid var(--color-hairline-strong)',
+            borderRadius: 'var(--radius-md)',
+          }}
+        />
+        {/* Middle square */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '14%',
+            border: '1px solid var(--color-hairline-strong)',
+            borderRadius: 'var(--radius-md)',
+          }}
+        />
+        {/* Inner square */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '32%',
+            border: '1px solid var(--color-hairline-strong)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        />
+        {/* The 10% — a single accent dot at the center */}
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: 'var(--color-accent)',
+            boxShadow: '0 0 0 6px var(--color-accent-soft)',
+          }}
+        />
+        {/* Crosshairs on the 30 tier */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: 0,
+            right: 0,
+            height: 1,
+            background: 'var(--color-hairline)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: 0,
+            bottom: 0,
+            width: 1,
+            background: 'var(--color-hairline)',
+          }}
+        />
+      </div>
     </div>
   );
 }
