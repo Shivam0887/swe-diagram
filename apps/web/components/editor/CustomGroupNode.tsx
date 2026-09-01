@@ -206,23 +206,32 @@ export const CustomGroupNode = memo(({ data, selected }: NodeProps) => {
           <NodeResizeControl
             minWidth={120}
             minHeight={80}
+            // The default CSS centers a 5×5 box on the corner with
+            // `translate: -50% -50%`, so a 12×12 wrapper has only ~6px
+            // of hit area inside the group — too small to grab reliably.
+            // Make the wrapper 20×20 (still centered on the corner so
+            // 10px sits inside the group) and render a chunky 14×14
+            // visual inside it.
             style={{
               background: 'transparent',
               border: 'none',
-              width: 12,
-              height: 12,
+              width: 20,
+              height: 20,
             }}
           >
             <div
               style={{
                 position: 'absolute',
-                right: 0,
-                bottom: 0,
-                width: 12,
-                height: 12,
+                left: '50%',
+                top: '50%',
+                width: 14,
+                height: 14,
                 background: 'var(--color-accent)',
-                borderRadius: 2,
+                border: '2px solid var(--color-bg)',
+                borderRadius: 3,
+                transform: 'translate(-50%, -50%)',
                 pointerEvents: 'none',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
               }}
             />
           </NodeResizeControl>

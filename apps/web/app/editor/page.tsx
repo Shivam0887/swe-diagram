@@ -101,6 +101,11 @@ function edgeTypeFor(routing: string | undefined): 'filletOrthogonal' | 'bezierC
   }
 }
 
+// Module-scope so the reference is stable across renders — passing a fresh
+// `{}` to <ReactFlow defaultEdgeOptions> on every render allocates a new
+// object that ReactFlow's effects can compare against.
+const DEFAULT_EDGE_OPTIONS = { type: 'filletOrthogonal' as const };
+
 function EditorCanvasContent() {
   const reactFlowInstance = useReactFlow();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -118,6 +123,24 @@ function EditorCanvasContent() {
 
   const [doc, setDoc] = useState<DiagramDocument>(initialDoc);
   const historyManagerRef = useRef(new DiagramHistoryManager(50));
+
+  // Cached `data` projections for each node/group. Without this, every
+  // `flowNodes` rebuild spreads `...node.data` (allocating a fresh
+  // object) and reassigns `shape`/`style`/`themeId` — which means even
+  // an unrelated doc change (e.g. one node's title being edited) busts
+  // the `React.memo` on every other node, because their `data` prop
+  // reference flipped. With this cache, only the node that actually
+  // changed gets a new `data` ref.
+  //
+  // For diagram nodes, we key on the specific source fields that flow
+  // into the projection (`data`, `shape`, `style`, `doc.theme`). The
+  // command pipeline produces a new ref on each field it changes, so
+  // identity comparison is the right test — and a pure position move
+  // (which replaces the parent node object but keeps `data`/`shape`/
+  // `style` refs) does NOT bust the cache.
+  const nodeDataCache = useRef(
+    new Map<string, { data: Record<string, unknown>; refs: unknown[] }>()
+  );
 
   // Theme is resolved once per doc.theme change and passed down via context.
   // Each custom node/edge reads it with useContext, avoiding a 30× per-frame
@@ -179,85 +202,164 @@ function EditorCanvasContent() {
   const flowNodes: Node[] = useMemo(
     () => {
       // Groups first so they sit behind the actual nodes (zIndex default).
-      const groupNodes: Node[] = (doc.groups ?? []).map((g) => ({
-        id: g.id,
-        type: 'customGroupNode',
-        position: g.position,
-        // React Flow expects width/height at the top level of a node.
-        width: g.size.width,
-        height: g.size.height,
-        // Groups are not drag-selectable in the standard sense; they
-        // take their own position from the group's position field and
-        // can't be connected to other nodes.
-        data: {
-          title: g.title,
-          subtitle: g.subtitle,
-          style: g.style ?? 'boundary',
-          colorRole: g.colorRole,
-          themeId: doc.theme,
-        },
-        selected: g.id === selectedGroupId,
-        // Make sure groups don't show handles or get auto-connected.
-        draggable: true,
-        selectable: true,
-        connectable: false,
-        zIndex: -1,
-        deletable: true,
-      }));
-      const diagramNodes: Node[] = doc.nodes.map((node) => ({
-        id: node.id,
-        type: 'customDiagramNode',
-        position: node.position,
-        data: {
-          ...node.data,
-          shape: node.shape ?? 'rounded_card',
-          style: node.style,
-          themeId: doc.theme,
-        },
-        selected: node.id === selectedNodeId,
-        parentId: node.groupId,
-      }));
+      //
+      // We deliberately do NOT set `selected` here: ReactFlow already tracks
+      // selection in its internal store and passes `selected` as a prop to
+      // each node component. Setting it here means changing the selection
+      // re-runs this memo, which allocates fresh `data` objects for every
+      // node, busting every `React.memo`'d `CustomDiagramNode` /
+      // `CustomGroupNode` on every click — that's the largest remaining
+      // drag/zoom lag contributor on a 30+ node diagram.
+      //
+      // The `nodeDataCache` below keeps each node's `data` reference
+      // stable when the underlying fields haven't changed, so even an
+      // unrelated doc change doesn't bust every node's memo.
+      const cache = nodeDataCache.current;
+      const seenIds = new Set<string>();
+
+      const getCachedData = (id: string, refs: unknown[], build: () => Record<string, unknown>) => {
+        const entry = cache.get(id);
+        if (entry && entry.refs.length === refs.length && entry.refs.every((r, i) => r === refs[i])) {
+          return entry.data;
+        }
+        const next = build();
+        cache.set(id, { data: next, refs });
+        return next;
+      };
+
+      const groupNodes: Node[] = (doc.groups ?? []).map((g) => {
+        seenIds.add(g.id);
+        const data = getCachedData(
+          g.id,
+          [g.title, g.subtitle, g.style, g.colorRole, doc.theme],
+          () => ({
+            title: g.title,
+            subtitle: g.subtitle,
+            style: g.style ?? 'boundary',
+            colorRole: g.colorRole,
+            themeId: doc.theme,
+          })
+        );
+        return {
+          id: g.id,
+          type: 'customGroupNode',
+          position: g.position,
+          // React Flow expects width/height at the top level of a node.
+          width: g.size.width,
+          height: g.size.height,
+          // Pre-fill `measured` so the XYResizer's drag handler starts from
+          // the real size. Without this, `node.measured.width` is undefined
+          // on first render and the resizer falls back to 0 — meaning the
+          // very first drag collapses the group to zero pixels wide.
+          measured: { width: g.size.width, height: g.size.height },
+          data,
+          // Make sure groups don't show handles or get auto-connected.
+          draggable: true,
+          selectable: true,
+          connectable: false,
+          zIndex: -1,
+          deletable: true,
+        };
+      });
+      const diagramNodes: Node[] = doc.nodes.map((node) => {
+        seenIds.add(node.id);
+        const data = getCachedData(
+          node.id,
+          [node.data, node.shape, node.style, doc.theme],
+          () => ({
+            ...node.data,
+            shape: node.shape ?? 'rounded_card',
+            style: node.style,
+            themeId: doc.theme,
+          })
+        );
+        return {
+          id: node.id,
+          type: 'customDiagramNode',
+          position: node.position,
+          data,
+          parentId: node.groupId,
+        };
+      });
+
+      // Drop cache entries for nodes that no longer exist.
+      for (const cachedId of Array.from(cache.keys())) {
+        if (!seenIds.has(cachedId)) cache.delete(cachedId);
+      }
+
       return [...groupNodes, ...diagramNodes];
     },
-    [doc.nodes, doc.groups, doc.theme, selectedNodeId, selectedGroupId]
+    // No selection IDs in deps — see comment above. ReactFlow's store is
+    // the single source of truth for which node is selected.
+    [doc.nodes, doc.groups, doc.theme]
   );
 
   const flowEdges: Edge[] = useMemo(
-    () =>
-      doc.edges.map((edge) => ({
-        id: edge.id,
-        source: edge.source.nodeId,
-        target: edge.target.nodeId,
-        sourceHandle: edge.source.portId,
-        targetHandle: edge.target.portId,
-        type: edgeTypeFor(edge.routing),
-        data: {
-          ...edge.data,
-          waypoints: edge.waypoints,
-          // Edge style is at the top level in the IR; the React-Flow edge
-          // component reads it from data.dashStyle.
-          dashStyle: edge.style,
-        },
-        selected: edge.id === selectedEdgeId,
-      })),
-    [doc.edges, selectedEdgeId]
+    () => {
+      // Cache `data` per edge so a single-edge edit doesn't bust memo
+      // on every other edge component (each edge component is
+      // `React.memo`'d and re-renders when its `data` ref changes).
+      // The cleanup pass lives in `flowNodes` above so we don't
+      // double-track the seen set.
+      const cache = nodeDataCache.current;
+      return doc.edges.map((edge) => {
+        const refs = [edge.data, edge.waypoints, edge.style, edge.routing];
+        const entry = cache.get(edge.id);
+        let data: Record<string, unknown>;
+        if (
+          entry &&
+          entry.refs.length === refs.length &&
+          entry.refs.every((r, i) => r === refs[i])
+        ) {
+          data = entry.data;
+        } else {
+          data = {
+            ...edge.data,
+            waypoints: edge.waypoints,
+            // Edge style is at the top level in the IR; the React-Flow
+            // edge component reads it from data.dashStyle.
+            dashStyle: edge.style,
+          };
+          cache.set(edge.id, { data, refs });
+        }
+        return {
+          id: edge.id,
+          source: edge.source.nodeId,
+          target: edge.target.nodeId,
+          sourceHandle: edge.source.portId,
+          targetHandle: edge.target.portId,
+          type: edgeTypeFor(edge.routing),
+          data,
+        };
+      });
+    },
+    [doc.edges]
   );
+
+  // Always-fresh reference to `doc` so change handlers can read it
+  // without becoming stale or pulling `doc` into their deps (which
+  // would rebuild them — and therefore the `onNodesChange` reference
+  // passed to <ReactFlow> — on every doc mutation).
+  const docRef = useRef(doc);
+  docRef.current = doc;
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      const currentDoc = docRef.current;
+      const groups = currentDoc.groups ?? [];
       for (const change of changes) {
         if (change.type === 'remove') {
           // Groups and nodes share the React Flow `nodes` channel; route
           // removes to the right command based on which collection the
           // id belongs to.
-          if ((doc.groups ?? []).some((g) => g.id === change.id)) {
+          if (groups.some((g) => g.id === change.id)) {
             executeCommand(new DeleteGroupCommand(change.id));
           } else {
             executeCommand(new DeleteNodeCommand(change.id));
           }
         } else if (change.type === 'select') {
           if (change.selected) {
-            if ((doc.groups ?? []).some((g) => g.id === change.id)) {
+            if (groups.some((g) => g.id === change.id)) {
               setSelectedGroupId(change.id);
               setSelectedNodeId(null);
               setSelectedEdgeId(null);
@@ -267,13 +369,43 @@ function EditorCanvasContent() {
               setSelectedGroupId(null);
             }
           } else {
-            if (selectedNodeId === change.id) setSelectedNodeId(null);
-            if (selectedGroupId === change.id) setSelectedGroupId(null);
+            // We can't read the latest selected* ids from a stale
+            // closure; the setters guard against no-op writes so it's
+            // safe to call them with the value from the change.
+            if (!change.id) return;
+            setSelectedNodeId((prev) => (prev === change.id ? null : prev));
+            setSelectedGroupId((prev) => (prev === change.id ? null : prev));
+          }
+        } else if (change.type === 'dimensions') {
+          // Resize finished (resizing: false). Persist the new size to the
+          // doc so the next render doesn't snap back to the old size.
+          // We only commit on the final event of a drag — committing on
+          // every tick would spam history with hundreds of undo steps.
+          if (!change.resizing && change.dimensions) {
+            const group = groups.find((g) => g.id === change.id);
+            if (group) {
+              const nextSize = {
+                width: Math.round(change.dimensions!.width),
+                height: Math.round(change.dimensions!.height),
+              };
+              if (
+                nextSize.width !== Math.round(group.size.width) ||
+                nextSize.height !== Math.round(group.size.height)
+              ) {
+                executeCommand(
+                  new UpdateGroupCommand(
+                    change.id,
+                    { size: nextSize },
+                    group
+                  )
+                );
+              }
+            }
           }
         }
       }
     },
-    [executeCommand, selectedNodeId, selectedGroupId, doc.groups]
+    [executeCommand]
   );
 
   const onEdgesChange = useCallback(
@@ -284,11 +416,13 @@ function EditorCanvasContent() {
           if (change.selected) {
             setSelectedEdgeId(change.id);
             setSelectedNodeId(null);
-          } else if (selectedEdgeId === change.id) setSelectedEdgeId(null);
+          } else {
+            setSelectedEdgeId((prev) => (prev === change.id ? null : prev));
+          }
         }
       }
     },
-    [executeCommand, selectedEdgeId]
+    [executeCommand]
   );
 
   const onConnect = useCallback(
@@ -622,7 +756,7 @@ function EditorCanvasContent() {
             fitView
             snapToGrid
             snapGrid={[16, 16]}
-            defaultEdgeOptions={{ type: 'filletOrthogonal' }}
+            defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
             proOptions={{ hideAttribution: true }}
             // selectionOnDrag was the single biggest contributor to drag
             // lag: it caused marquee selection to flip selectedNodeId on

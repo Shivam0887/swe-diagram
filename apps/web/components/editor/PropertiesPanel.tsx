@@ -470,13 +470,16 @@ function EdgeProperties({
 
         <BareField label="Step number">
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={data.stepNumber !== undefined ? String(data.stepNumber) : ''}
-            onChange={(e) =>
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^0-9]/g, '');
               onUpdate(edge.id, {
-                data: { ...data, stepNumber: e.target.value === '' ? undefined : Number(e.target.value) },
-              })
-            }
+                data: { ...data, stepNumber: raw === '' ? undefined : Number(raw) },
+              });
+            }}
             placeholder="1, 2, 3…"
             style={inputBareStyle}
           />
@@ -867,23 +870,29 @@ function GroupProperties({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <BareField label="W">
               <input
-                type="number"
-                min={80}
-                value={Math.round(group.size.width)}
-                onChange={(e) =>
-                  onUpdate(group.id, { size: { ...group.size, width: Math.max(80, Number(e.target.value) || 80) } })
-                }
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(Math.round(group.size.width))}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  const next = Math.max(80, Number(raw) || 80);
+                  onUpdate(group.id, { size: { ...group.size, width: next } });
+                }}
                 style={inputBareStyle}
               />
             </BareField>
             <BareField label="H">
               <input
-                type="number"
-                min={60}
-                value={Math.round(group.size.height)}
-                onChange={(e) =>
-                  onUpdate(group.id, { size: { ...group.size, height: Math.max(60, Number(e.target.value) || 60) } })
-                }
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={String(Math.round(group.size.height))}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  const next = Math.max(60, Number(raw) || 60);
+                  onUpdate(group.id, { size: { ...group.size, height: next } });
+                }}
                 style={inputBareStyle}
               />
             </BareField>
