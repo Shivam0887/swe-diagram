@@ -2,7 +2,9 @@ packages:
   - 'packages/*'
   - 'apps/*'
 
-onlyBuiltDependencies:
-  - sharp
-  - turbo
-  - esbuild
+allowBuilds:
+  sharp: true
+  turbo: true
+  esbuild: true
+  '@heroui/react': true
+  unrs-resolver: true
