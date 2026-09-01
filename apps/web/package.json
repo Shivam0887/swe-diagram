@@ -1,0 +1,43 @@
+{
+  "name": "@app/web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@heroui/react": "^3.2.4",
+    "@heroui/styles": "^3.2.4",
+    "@platform/db": "workspace:*",
+    "@platform/design-system": "workspace:*",
+    "@platform/diagram-core": "workspace:*",
+    "@platform/diagram-layout": "workspace:*",
+    "@platform/diagram-renderer": "workspace:*",
+    "@platform/diagram-schema": "workspace:*",
+    "@platform/export": "workspace:*",
+    "@platform/icon-library": "workspace:*",
+    "@tabler/icons-react": "^3.46.0",
+    "@tailwindcss/postcss": "^4.0.9",
+    "@xyflow/react": "^12.4.4",
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.1.1",
+    "lucide-react": "^0.475.0",
+    "next": "^15.1.7",
+    "next-themes": "^0.4.6",
+    "postcss": "^8.5.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.9",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "typescript": "^5.7.3"
+  }
+}

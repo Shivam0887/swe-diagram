@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@platform/diagram-schema": ["./packages/diagram-schema/src"],
+      "@platform/diagram-schema/*": ["./packages/diagram-schema/src/*"],
+      "@platform/design-system": ["./packages/design-system/src"],
+      "@platform/design-system/*": ["./packages/design-system/src/*"],
+      "@platform/icon-library": ["./packages/icon-library/src"],
+      "@platform/icon-library/*": ["./packages/icon-library/src/*"],
+      "@platform/diagram-core": ["./packages/diagram-core/src"],
+      "@platform/diagram-core/*": ["./packages/diagram-core/src/*"],
+      "@platform/diagram-layout": ["./packages/diagram-layout/src"],
+      "@platform/diagram-layout/*": ["./packages/diagram-layout/src/*"],
+      "@platform/diagram-renderer": ["./packages/diagram-renderer/src"],
+      "@platform/diagram-renderer/*": ["./packages/diagram-renderer/src/*"],
+      "@platform/diagram-editor": ["./packages/diagram-editor/src"],
+      "@platform/diagram-editor/*": ["./packages/diagram-editor/src/*"],
+      "@platform/export": ["./packages/export/src"],
+      "@platform/export/*": ["./packages/export/src/*"],
+      "@platform/db": ["./packages/db/src"],
+      "@platform/db/*": ["./packages/db/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next"]
+}

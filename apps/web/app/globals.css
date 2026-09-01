@@ -1,0 +1,454 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "tw-animate-css";
+
+/* ========================================================================
+   Editorial design tokens — single source of truth for chrome + canvas
+   Near-monochrome dark with a single vermillion accent (#FF5A1F).
+   All visual decisions live here. Components consume var(--…) only.
+   ======================================================================== */
+
+@theme {
+  /* Surfaces */
+  --color-bg: #0B0B0C;
+  --color-bg-raised: #131315;
+  --color-bg-sunken: #08080A;
+
+  /* Ink (text + icons) */
+  --color-ink: #E8E2D5;
+  --color-ink-2: #8C8A85;
+  --color-ink-3: #4A4944;
+
+  /* Rules */
+  --color-hairline: #1A1A1C;
+  --color-hairline-strong: #26262A;
+
+  /* Accent — single, used sparingly */
+  --color-accent: #FF5A1F;
+  --color-accent-glow: rgba(255, 90, 31, 0.18);
+  --color-accent-soft: rgba(255, 90, 31, 0.08);
+}
+
+:root {
+  /* Type stacks — fonts wired up in layout.tsx via next/font */
+  --font-sans: var(--font-geist-sans, "Geist", system-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-display: var(--font-instrument-serif, "Instrument Serif", "Times New Roman", serif);
+  --font-mono: var(--font-geist-mono, "Geist Mono", "JetBrains Mono", monospace);
+
+  /* Spacing scale (4-based, intentional) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* Radius — only a few values used */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.55;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* --- Type primitives -------------------------------------------------- */
+
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 0.95;
+  color: var(--color-ink);
+}
+.t-h1 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.t-h2 {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.t-body  { font-size: 15px; line-height: 1.6; color: var(--color-ink); }
+.t-small { font-size: 13px; line-height: 1.5; color: var(--color-ink-2); }
+.t-mono  { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; color: var(--color-ink-2); }
+.t-accent { color: var(--color-accent); }
+
+/* --- Surfaces --------------------------------------------------------- */
+
+.s-raised { background: var(--color-bg-raised); }
+.s-sunken { background: var(--color-bg-sunken); }
+
+.hair-t { border-top: 1px solid var(--color-hairline); }
+.hair-b { border-bottom: 1px solid var(--color-hairline); }
+.hair-l { border-left: 1px solid var(--color-hairline); }
+.hair-r { border-right: 1px solid var(--color-hairline); }
+.hair-strong-b { border-bottom: 1px solid var(--color-hairline-strong); }
+
+/* --- Buttons ---------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn--primary {
+  background: var(--color-ink);
+  color: var(--color-bg);
+  border-color: var(--color-ink);
+}
+.btn--primary:hover { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-bg); }
+
+.btn--ghost {
+  background: transparent;
+  color: var(--color-ink);
+  border-color: var(--color-hairline-strong);
+}
+.btn--ghost:hover { border-color: var(--color-ink); }
+
+.btn--link {
+  height: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--color-ink);
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn--link:hover { color: var(--color-accent); }
+.btn--link .arrow { transition: transform 200ms ease; }
+.btn--link:hover .arrow { transform: translateX(3px); }
+
+/* Small button (32px) — editor + density */
+.btn--sm {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+/* --- Inputs ----------------------------------------------------------- */
+
+.input {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.input:focus { border-color: var(--color-accent); }
+.input--bare {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-hairline);
+  border-radius: 0;
+  padding: 0 0 6px;
+}
+.input--bare:focus { border-bottom-color: var(--color-accent); }
+
+.textarea {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  resize: vertical;
+  min-height: 64px;
+  transition: border-color 150ms ease;
+  width: 100%;
+}
+.textarea:focus { border-color: var(--color-accent); }
+
+/* --- Cards ------------------------------------------------------------ */
+
+.card {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+.card--hover:hover { border-color: var(--color-hairline-strong); background: var(--color-bg-sunken); }
+
+/* --- Chip / pill ------------------------------------------------------ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--color-hairline-strong);
+  background: transparent;
+  color: var(--color-ink-2);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+.chip:hover { color: var(--color-ink); border-color: var(--color-ink-3); }
+.chip[data-active="true"] {
+  color: var(--color-bg);
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+/* --- Scrollbar -------------------------------------------------------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-hairline-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-3); }
+* { scrollbar-color: var(--color-hairline-strong) transparent; scrollbar-width: thin; }
+
+/* --- Layout helpers --------------------------------------------------- */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.container--narrow { max-width: 880px; }
+
+.section {
+  padding: 96px 0;
+}
+@media (max-width: 720px) {
+  .section { padding: 64px 0; }
+}
+
+/* --- Motion (the only two animations on the site) --------------------- */
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.enter { animation: enter 220ms ease-out both; }
+.enter-delay-1 { animation-delay: 60ms; }
+.enter-delay-2 { animation-delay: 120ms; }
+.enter-delay-3 { animation-delay: 180ms; }
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: inline-block;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter, .live-dot { animation: none; }
+  * { transition-duration: 0ms !important; }
+}
+
+/* --- Cursor glow (landing + gallery only) ----------------------------- */
+
+.cursor-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    600px circle at var(--mx, 50%) var(--my, 30%),
+    var(--color-accent-glow),
+    transparent 60%
+  );
+  transition: background-position 200ms ease;
+  will-change: background;
+}
+
+/* ========================================================================
+   HeroUI theme bridge — map HeroUI's semantic variables to our editorial
+   dark palette. The `dark` class on <html> drives this. Components built
+   with @heroui/react (Button, Input, Select, Modal, Chip, Tabs, …) read
+   these variables automatically.
+   ======================================================================== */
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Base */
+  --background: var(--color-bg);
+  --foreground: var(--color-ink);
+
+  /* Surface */
+  --surface: var(--color-bg-raised);
+  --surface-foreground: var(--color-ink);
+  --surface-secondary: var(--color-bg-raised);
+  --surface-secondary-foreground: var(--color-ink-2);
+  --surface-tertiary: var(--color-bg-sunken);
+  --surface-tertiary-foreground: var(--color-ink-2);
+
+  /* Overlay (modals, popovers) */
+  --overlay: var(--color-bg-raised);
+  --overlay-foreground: var(--color-ink);
+  --muted: var(--color-ink-2);
+
+  /* Border / divider */
+  --border: var(--color-hairline-strong);
+  --divider: var(--color-hairline);
+  --segment: var(--color-hairline-strong);
+
+  /* Foreground stops */
+  --foreground-50: #F4EFE6;
+  --foreground-100: #E8E2D5;
+  --foreground-200: #C9C3B5;
+  --foreground-300: #8C8A85;
+  --foreground-400: #6A6862;
+  --foreground-500: #4A4944;
+  --foreground-600: #36352F;
+  --foreground-700: #26262A;
+  --foreground-800: #1A1A1C;
+  --foreground-900: #131315;
+  --foreground-950: #0B0B0C;
+
+  /* Accent (single) */
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-bg);
+  --accent-soft: var(--color-accent-soft);
+  --accent-strong: var(--color-accent);
+
+  /* Focus */
+  --focus: var(--color-accent);
+  --link: var(--color-accent);
+
+  /* Status */
+  --success: #5EEAD4;
+  --success-foreground: #0B0B0C;
+  --warning: #E8C580;
+  --warning-foreground: #0B0B0C;
+  --danger: #FF5A1F;
+  --danger-foreground: #0B0B0C;
+}
+
+/* --- React Flow overrides (match editorial chrome) ------------------- */
+
+.react-flow {
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+}
+.react-flow__attribution { display: none !important; }
+.react-flow__background { color: var(--color-hairline) !important; }
+.react-flow__minimap {
+  background: var(--color-bg-raised) !important;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: var(--radius-md) !important;
+}
+.react-flow__minimap-mask { fill: rgba(11, 11, 12, 0.85) !important; }
+.react-flow__minimap-node { fill: var(--color-ink-2) !important; stroke: var(--color-ink-2) !important; }
+.react-flow__controls {
+  background: var(--color-bg-raised) !important;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--color-hairline) !important;
+  color: var(--color-ink-2) !important;
+  fill: var(--color-ink-2) !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-bg-sunken) !important;
+  color: var(--color-ink) !important;
+  fill: var(--color-ink) !important;
+}
+.react-flow__controls-button svg { fill: currentColor; }
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--color-bg) !important;
+  border: 1.5px solid var(--color-ink-2) !important;
+  border-radius: 50% !important;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+.react-flow__handle:hover { border-color: var(--color-accent); transform: scale(1.3); }
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: var(--color-hairline-strong) !important;
+  stroke-width: 1.5 !important;
+  fill: none;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: var(--color-accent) !important;
+  stroke-width: 2 !important;
+}
+.react-flow__node { cursor: grab; }
+.react-flow__node:active { cursor: grabbing; }
+.react-flow__edge-text { font-family: var(--font-mono); font-size: 10px; fill: var(--color-ink); }
+.react-flow__edge-textbg { fill: var(--color-bg-raised); stroke: var(--color-hairline); }
