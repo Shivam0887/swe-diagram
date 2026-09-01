@@ -143,6 +143,9 @@ export const editorialDarkTheme: Theme = {
     swimlaneBackground: 'rgba(19, 19, 21, 0.3)',
     swimlaneBorder: '#1A1A1C',
     swimlaneText: '#8C8A85',
+    cardBackground: 'rgba(232, 226, 213, 0.04)',
+    cardBorder: '#E8E2D5',
+    cardText: '#E8E2D5',
   },
   annotations: {
     stepCircleBackground: '#FF5A1F',

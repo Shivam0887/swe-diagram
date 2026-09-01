@@ -3,7 +3,19 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@heroui/react';
-import { ArrowLeft, Undo2, Redo2, Wand2, Download, Save, Loader2, Sparkles, ChevronDown } from 'lucide-react';
+import {
+  ArrowLeft,
+  Undo2,
+  Redo2,
+  Wand2,
+  Download,
+  Save,
+  Loader2,
+  Sparkles,
+  ChevronDown,
+  PanelLeft,
+  PanelRight,
+} from 'lucide-react';
 import type { ThemeId } from '@platform/diagram-schema';
 import { getAllThemes } from '@platform/design-system';
 
@@ -24,6 +36,12 @@ interface EditorToolbarProps {
   onLoadTemplate: (t: string) => void;
   onOpenCopilot: () => void;
   isSaving: boolean;
+  /** Show or hide the left component palette. */
+  paletteOpen: boolean;
+  onTogglePalette: () => void;
+  /** Show or hide the right properties / copilot panel. */
+  propertiesOpen: boolean;
+  onToggleProperties: () => void;
 }
 
 const toolbarBtnStyle: React.CSSProperties = {
@@ -62,6 +80,10 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onLoadTemplate,
   onOpenCopilot,
   isSaving,
+  paletteOpen,
+  onTogglePalette,
+  propertiesOpen,
+  onToggleProperties,
 }) => {
   const [themeOpen, setThemeOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -178,6 +200,50 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
             </Button>
           </span>
         )}
+
+        <span
+          aria-hidden
+          style={{ width: 1, height: 20, background: 'var(--color-hairline)', margin: '0 6px' }}
+        />
+
+        <span
+          title={paletteOpen ? 'Hide component palette' : 'Show component palette'}
+          style={{ display: 'inline-flex' }}
+        >
+          <Button
+            onPress={onTogglePalette}
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            aria-label={paletteOpen ? 'Hide component palette' : 'Show component palette'}
+            style={{
+              ...iconBtnStyle,
+              background: paletteOpen ? 'transparent' : 'var(--color-bg-sunken)',
+              color: paletteOpen ? 'var(--color-ink-2)' : 'var(--color-ink)',
+            }}
+          >
+            <PanelLeft size={14} />
+          </Button>
+        </span>
+        <span
+          title={propertiesOpen ? 'Hide properties panel' : 'Show properties panel'}
+          style={{ display: 'inline-flex' }}
+        >
+          <Button
+            onPress={onToggleProperties}
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            aria-label={propertiesOpen ? 'Hide properties panel' : 'Show properties panel'}
+            style={{
+              ...iconBtnStyle,
+              background: propertiesOpen ? 'transparent' : 'var(--color-bg-sunken)',
+              color: propertiesOpen ? 'var(--color-ink-2)' : 'var(--color-ink)',
+            }}
+          >
+            <PanelRight size={14} />
+          </Button>
+        </span>
       </div>
 
       {/* Right: theme / template / copilot / save / export */}

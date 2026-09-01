@@ -3,7 +3,8 @@
 import React, { memo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import { generateFilletOrthogonalPath } from '@platform/diagram-layout';
-import type { DiagramEdge, EdgeStyle, Point } from '@platform/diagram-schema';
+import type { DiagramEdge, EdgeStyle, Point, EdgeAnimationType, EdgeAnimationSpeed } from '@platform/diagram-schema';
+import { EdgeAnimationOverlay, edgeAnimationPathId } from './EdgeAnimation';
 
 export type CustomEdgeData = DiagramEdge['data'] & {
   waypoints?: Point[];
@@ -53,13 +54,17 @@ export const FilletOrthogonalEdge = memo(
     const midY = (sourceY + targetY) / 2;
 
     const isAnimated = edgeData?.animated;
+    const animationType: EdgeAnimationType = edgeData?.animationType ?? 'particles';
+    const animationSpeed: EdgeAnimationSpeed = edgeData?.animationSpeed ?? 'normal';
     const flowColor = edgeData?.flowColor ?? '#FF5A1F';
-    const speedSec = edgeData?.animationSpeed === 'fast' ? '1.2s' : edgeData?.animationSpeed === 'slow' ? '3.5s' : '2.2s';
+    const effectiveDasharray =
+      isAnimated && animationType === 'dash_flow' ? '6 4' : dasharray;
+    const pathAnimId = edgeAnimationPathId(id, animationType);
 
     return (
       <>
         <BaseEdge
-          id={id}
+          id={pathAnimId ?? id}
           path={pathD}
           style={{
             ...style,
@@ -67,20 +72,19 @@ export const FilletOrthogonalEdge = memo(
             strokeWidth,
             strokeLinecap: 'round',
             strokeLinejoin: 'round',
-            strokeDasharray: dasharray,
+            strokeDasharray: effectiveDasharray,
           }}
           markerEnd={markerEnd}
         />
 
         {isAnimated && (
-          <svg className="overflow-visible pointer-events-none absolute inset-0">
-            <circle r="3" fill={flowColor} opacity="0.95">
-              <animateMotion dur={speedSec} repeatCount="indefinite" path={pathD} />
-            </circle>
-            <circle r="6" fill={flowColor} opacity="0.25">
-              <animateMotion dur={speedSec} repeatCount="indefinite" path={pathD} />
-            </circle>
-          </svg>
+          <EdgeAnimationOverlay
+            pathD={pathD}
+            edgeId={id}
+            type={animationType}
+            speed={animationSpeed}
+            flowColor={flowColor}
+          />
         )}
 
         {(edgeData?.label || edgeData?.stepNumber !== undefined) && (

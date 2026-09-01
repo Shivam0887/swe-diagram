@@ -233,19 +233,17 @@ export const IconPickerModal: React.FC<IconPickerModalProps> = ({
                         color: isSelected ? 'var(--color-accent)' : 'var(--color-ink)',
                       }}
                     >
-                      {def.nodes && def.nodes.length > 0 ? (
-                        def.source === 'lucide' && getLucideIcon(def.name) ? (
-                          React.createElement(getLucideIcon(def.name)!, { size: 22, color: 'currentColor' })
-                        ) : def.source === 'tabler' && getTablerIcon(def.name) ? (
-                          React.createElement(getTablerIcon(def.name)!, { size: 22, color: 'currentColor', stroke: 1.5 })
-                        ) : (
-                          <svg
-                            viewBox={def.viewBox || '0 0 24 24'}
-                            style={{ width: '100%', height: '100%', fill: 'currentColor' }}
-                          >
-                            <IconShapes def={def} currentColor={false} />
-                          </svg>
-                        )
+                      {def.source === 'lucide' && getLucideIcon(def.name) ? (
+                        React.createElement(getLucideIcon(def.name)!, { size: 22, color: 'currentColor' })
+                      ) : def.source === 'tabler' && getTablerIcon(def.name) ? (
+                        React.createElement(getTablerIcon(def.name)!, { size: 22, color: 'currentColor', stroke: 1.5 })
+                      ) : def.nodes && def.nodes.length > 0 ? (
+                        <svg
+                          viewBox={def.viewBox || '0 0 24 24'}
+                          style={{ width: '100%', height: '100%', fill: 'currentColor' }}
+                        >
+                          <IconShapes def={def} currentColor={false} />
+                        </svg>
                       ) : null}
                     </div>
                     <span

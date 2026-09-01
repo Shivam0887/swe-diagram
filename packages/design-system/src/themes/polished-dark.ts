@@ -159,6 +159,9 @@ export const polishedDarkTheme: Theme = {
     swimlaneBackground: 'rgba(20, 22, 27, 0.30)',
     swimlaneBorder: '#1A1A1C',
     swimlaneText: '#8C8A85',
+    cardBackground: 'rgba(255, 90, 31, 0.06)',
+    cardBorder: '#FF5A1F',
+    cardText: '#FF5A1F',
   },
   annotations: {
     stepCircleBackground: '#FF5A1F',

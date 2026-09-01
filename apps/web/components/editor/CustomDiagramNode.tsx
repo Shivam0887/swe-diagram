@@ -46,7 +46,13 @@ export const CustomDiagramNode = memo(({ data, selected }: NodeProps) => {
   const accentColor = customStyle?.accentColor ?? borderColor;
 
   const iconDef = nodeData.icon ? getIcon(nodeData.icon) : null;
-  const showIcon = nodeData.showIcon !== false && iconDef !== null && iconDef.nodes.length > 0;
+  // Lucide/Tabler entries are registered with empty `nodes: []` and render
+  // through their React component instead. Native icons need at least one
+  // node to be renderable.
+  const hasRenderableIcon =
+    iconDef !== null &&
+    (iconDef.nodes.length > 0 || iconDef.source === 'lucide' || iconDef.source === 'tabler');
+  const showIcon = nodeData.showIcon !== false && hasRenderableIcon;
 
   const title = nodeData.title;
   const subtitle = nodeData.subtitle;
@@ -400,7 +406,14 @@ function IconChip({
   size?: number;
   chipSize?: number;
 }) {
-  if (!iconDef || iconDef.nodes.length === 0) return null;
+  if (!iconDef) return null;
+  // Lucide/Tabler icons are registered with empty `nodes: []` and must
+  // render through their React component. Native icons need at least one
+  // node in `nodes` to be paintable.
+  const hasNativeNodes = iconDef.nodes.length > 0;
+  if (!hasNativeNodes && iconDef.source !== 'lucide' && iconDef.source !== 'tabler') {
+    return null;
+  }
   const innerOffset = (chipSize - size) / 2;
   // Icon from a third-party React-component library (Lucide, Tabler) — render
   // the component directly. Otherwise fall back to the native `nodes` painter.

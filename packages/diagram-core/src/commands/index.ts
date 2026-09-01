@@ -254,3 +254,173 @@ export class BatchCommand implements DiagramCommand {
       .reduce((currentDoc, cmd) => cmd.undo(currentDoc), doc);
   }
 }
+
+/**
+ * Insert a new group. The group is added with no children assigned —
+ * users explicitly add nodes to the group via AssignNodeGroupCommand,
+ * or by dragging nodes onto it.
+ */
+export class InsertGroupCommand implements DiagramCommand {
+  readonly type = 'INSERT_GROUP';
+  constructor(public readonly group: DiagramGroup) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      groups: [...doc.groups, this.group],
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    // Detach any nodes that were still pointing at this group so the
+    // undo round-trip leaves the document in a consistent state.
+    return {
+      ...doc,
+      groups: doc.groups.filter((g) => g.id !== this.group.id),
+      nodes: doc.nodes.map((n) =>
+        n.groupId === this.group.id ? { ...n, groupId: undefined } : n
+      ),
+    };
+  }
+}
+
+export class UpdateGroupCommand implements DiagramCommand {
+  readonly type = 'UPDATE_GROUP';
+  constructor(
+    public readonly groupId: string,
+    public readonly patch: Partial<DiagramGroup>,
+    public readonly prevGroup: DiagramGroup
+  ) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      groups: doc.groups.map((g) => (g.id === this.groupId ? { ...g, ...this.patch } : g)),
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      groups: doc.groups.map((g) => (g.id === this.groupId ? this.prevGroup : g)),
+    };
+  }
+}
+
+export class MoveGroupCommand implements DiagramCommand {
+  readonly type = 'MOVE_GROUP';
+  constructor(
+    public readonly groupId: string,
+    public readonly newPosition: Point,
+    public readonly prevPosition: Point
+  ) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      groups: doc.groups.map((g) => (g.id === this.groupId ? { ...g, position: this.newPosition } : g)),
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      groups: doc.groups.map((g) => (g.id === this.groupId ? { ...g, position: this.prevPosition } : g)),
+    };
+  }
+}
+
+export class DeleteGroupCommand implements DiagramCommand {
+  readonly type = 'DELETE_GROUP';
+  private deletedGroup?: DiagramGroup;
+
+  constructor(public readonly groupId: string) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    this.deletedGroup = doc.groups.find((g) => g.id === this.groupId);
+    return {
+      ...doc,
+      groups: doc.groups.filter((g) => g.id !== this.groupId),
+      // Detach member nodes so the doc stays valid.
+      nodes: doc.nodes.map((n) =>
+        n.groupId === this.groupId ? { ...n, groupId: undefined } : n
+      ),
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    if (!this.deletedGroup) return doc;
+    return {
+      ...doc,
+      groups: [...doc.groups, this.deletedGroup],
+    };
+  }
+}
+
+/**
+ * Assign a single node to a group (or to no group when `groupId` is
+ * undefined). Used both for drag-to-group and for explicit assignment
+ * from the properties panel.
+ */
+export class AssignNodeGroupCommand implements DiagramCommand {
+  readonly type = 'ASSIGN_NODE_GROUP';
+  constructor(
+    public readonly nodeId: string,
+    public readonly newGroupId: string | undefined,
+    public readonly prevGroupId: string | undefined
+  ) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      nodes: doc.nodes.map((n) =>
+        n.id === this.nodeId ? { ...n, groupId: this.newGroupId } : n
+      ),
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      nodes: doc.nodes.map((n) =>
+        n.id === this.nodeId ? { ...n, groupId: this.prevGroupId } : n
+      ),
+    };
+  }
+}
+
+/**
+ * Assign many nodes to a group in one undoable step. Used by the
+ * "Group selection" command in the editor.
+ */
+export class AssignNodesToGroupCommand implements DiagramCommand {
+  readonly type = 'ASSIGN_NODES_TO_GROUP';
+  private prevAssignments: Record<string, string | undefined> = {};
+
+  constructor(
+    public readonly groupId: string,
+    public readonly nodeIds: string[]
+  ) {}
+
+  execute(doc: DiagramDocument): DiagramDocument {
+    this.prevAssignments = {};
+    return {
+      ...doc,
+      nodes: doc.nodes.map((n) => {
+        if (!this.nodeIds.includes(n.id)) return n;
+        this.prevAssignments[n.id] = n.groupId;
+        return { ...n, groupId: this.groupId };
+      }),
+    };
+  }
+
+  undo(doc: DiagramDocument): DiagramDocument {
+    return {
+      ...doc,
+      nodes: doc.nodes.map((n) => {
+        if (!(n.id in this.prevAssignments)) return n;
+        return { ...n, groupId: this.prevAssignments[n.id] };
+      }),
+    };
+  }
+}

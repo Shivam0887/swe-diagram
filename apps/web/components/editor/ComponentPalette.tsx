@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, GripVertical, Plus, Bookmark, Trash2, FolderPlus } from 'lucide-react';
+import { Search, GripVertical, Plus, Bookmark, Trash2, FolderPlus, Group, SquareDashed, Container, Columns2, Layers, type LucideIcon } from 'lucide-react';
 import { Button } from '@heroui/react';
-import type { DiagramNode, NodeType, NodeShape, CustomCollection } from '@platform/diagram-schema';
+import type { DiagramNode, NodeType, NodeShape, CustomCollection, GroupStyle } from '@platform/diagram-schema';
 
 const COMMON_NODES: { type: NodeType; shape?: NodeShape; label: string; category: string }[] = [
   { type: 'service', shape: 'rounded_card', label: 'Microservice', category: 'Compute' },
@@ -20,6 +20,13 @@ const COMMON_NODES: { type: NodeType; shape?: NodeShape; label: string; category
   { type: 'browser', shape: 'browser_window', label: 'Web browser', category: 'External' },
 ];
 
+const GROUP_STYLES: { style: GroupStyle; label: string; icon: LucideIcon }[] = [
+  { style: 'container', label: 'Container', icon: Container },
+  { style: 'boundary', label: 'Boundary', icon: SquareDashed },
+  { style: 'swimlane', label: 'Swimlane', icon: Columns2 },
+  { style: 'card', label: 'Card', icon: Layers },
+];
+
 interface ComponentPaletteProps {
   onAddNode: (
     type: NodeType,
@@ -32,6 +39,8 @@ interface ComponentPaletteProps {
   onCreateCollection?: (name: string) => void;
   onDeleteCollectionItem?: (collectionId: string, itemId: string) => void;
   selectedNode?: DiagramNode | null;
+  onAddGroup?: (style: GroupStyle) => void;
+  onGroupSelection?: () => void;
 }
 
 export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
@@ -41,6 +50,8 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
   onCreateCollection,
   onDeleteCollectionItem,
   selectedNode,
+  onAddGroup,
+  onGroupSelection,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -215,6 +226,60 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
               </Section>
             );
           })
+        )}
+
+        {onAddGroup && (
+          <Section title="groups">
+            {GROUP_STYLES.map((g) => {
+              const Icon = g.icon;
+              return (
+                <div
+                  key={g.style}
+                  onClick={() => onAddGroup(g.style)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    color: 'var(--color-ink)',
+                    transition: 'background-color 150ms ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-raised)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <Icon size={13} style={{ color: 'var(--color-ink-3)' }} />
+                  <span style={{ flex: 1 }}>{g.label}</span>
+                  <span className="t-mono" style={{ fontSize: 10 }}>
+                    {g.style}
+                  </span>
+                </div>
+              );
+            })}
+            {selectedNode && onGroupSelection && (
+              <div
+                onClick={onGroupSelection}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: 'var(--color-ink)',
+                  background: 'var(--color-bg-raised)',
+                  marginTop: 4,
+                  border: '1px dashed var(--color-hairline)',
+                }}
+              >
+                <Group size={13} style={{ color: 'var(--color-accent)' }} />
+                <span style={{ flex: 1 }}>Group selection</span>
+              </div>
+            )}
+          </Section>
         )}
       </div>
 

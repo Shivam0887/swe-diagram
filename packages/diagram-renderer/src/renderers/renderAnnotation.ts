@@ -50,7 +50,7 @@ export function renderAnnotationSvg(annotation: DiagramAnnotation, theme: Theme)
         <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${theme.tokens.radius.md}" fill="${bg}" stroke="${border}" stroke-width="1.5" />
         <text x="${x + 12}" y="${y + 22}" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="12" font-weight="700" fill="${textCol}">${title}</text>
         <foreignObject x="${x + 12}" y="${y + 28}" width="${width - 24}" height="${height - 34}">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:${theme.typography.fontFamily};font-size:11px;color:${textCol};line-height:1.4;">${text}</div>
+          <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:${escapeXml(theme.typography.fontFamily)};font-size:11px;color:${escapeXml(textCol)};line-height:1.4;">${text}</div>
         </foreignObject>
       </g>
       `.trim();

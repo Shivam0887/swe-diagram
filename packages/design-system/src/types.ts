@@ -85,6 +85,9 @@ export type Theme = {
     swimlaneBackground: string;
     swimlaneBorder: string;
     swimlaneText: string;
+    cardBackground: string;
+    cardBorder: string;
+    cardText: string;
   };
   annotations: {
     stepCircleBackground: string;

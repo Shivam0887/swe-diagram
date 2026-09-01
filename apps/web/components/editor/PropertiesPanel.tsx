@@ -9,31 +9,54 @@ import {
   Image as ImageIcon,
   Hash,
   Check,
+  ChevronDown,
 } from 'lucide-react';
-import { Chip } from '@heroui/react';
+import { Chip, Select, ListBox } from '@heroui/react';
 import type {
   DiagramNode,
   DiagramEdge,
+  DiagramGroup,
+  GroupStyle,
   NodeShape,
   EdgeAnimationSpeed,
+  EdgeAnimationType,
   EdgeRouting,
   EdgeStyle,
 } from '@platform/diagram-schema';
 import { iconRegistry, getLucideIcon, getTablerIcon, IconShapes } from '@platform/icon-library';
 import { IconPickerModal } from './IconPickerModal';
 
-const NODE_SHAPES: { id: NodeShape; label: string }[] = [
+// Polished shapes (the "Bento" visual system) come first — those are the
+// renders the user actually sees. Legacy shapes (cylinder, queue_buffer,
+// browser_window, device_mobile, cloud) are kept for backward compatibility
+// with existing sample diagrams but are presented in a separate section.
+const POLISHED_NODE_SHAPES: { id: NodeShape; label: string }[] = [
+  { id: 'bento_card', label: 'Bento card' },
+  { id: 'data_cylinder', label: 'Data cylinder' },
+  { id: 'event_stream', label: 'Event stream' },
+  { id: 'serverless_function', label: 'Serverless function' },
+  { id: 'user_avatar', label: 'User avatar' },
+  { id: 'tier_card', label: 'Tier card' },
+  { id: 'gateway_ribbon', label: 'Gateway ribbon' },
+];
+
+const LEGACY_NODE_SHAPES: { id: NodeShape; label: string }[] = [
   { id: 'rounded_card', label: 'Rounded card' },
   { id: 'cylinder', label: 'Database cylinder' },
   { id: 'queue_buffer', label: 'Queue buffer' },
-  { id: 'pill', label: 'Pill / capsule' },
   { id: 'cloud', label: 'Cloud' },
   { id: 'browser_window', label: 'Browser window' },
   { id: 'device_mobile', label: 'Mobile device' },
+  { id: 'pill', label: 'Pill / capsule' },
   { id: 'hexagon', label: 'Hexagon worker' },
   { id: 'diamond', label: 'Decision diamond' },
   { id: 'note', label: 'Sticky note' },
   { id: 'text_only', label: 'Text only' },
+];
+
+const NODE_SHAPES: { id: NodeShape; label: string }[] = [
+  ...POLISHED_NODE_SHAPES,
+  ...LEGACY_NODE_SHAPES,
 ];
 
 const PRESET_COLORS = ['#0B0B0C', '#131315', '#E8E2D5', '#FF5A1F', '#8C8A85', '#4A4944', '#26262A'];
@@ -41,15 +64,19 @@ const PRESET_COLORS = ['#0B0B0C', '#131315', '#E8E2D5', '#FF5A1F', '#8C8A85', '#
 interface PropertiesPanelProps {
   selectedNode: DiagramNode | null;
   selectedEdge: DiagramEdge | null;
+  selectedGroup?: DiagramGroup | null;
   onUpdateNode: (id: string, updates: Partial<DiagramNode>) => void;
   onUpdateEdge: (id: string, updates: Partial<DiagramEdge>) => void;
+  onUpdateGroup?: (id: string, updates: Partial<DiagramGroup>) => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedNode,
   selectedEdge,
+  selectedGroup,
   onUpdateNode,
   onUpdateEdge,
+  onUpdateGroup,
 }) => {
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
 
@@ -89,6 +116,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     );
   } else if (selectedEdge) {
     body = <EdgeProperties edge={selectedEdge} onUpdate={onUpdateEdge} />;
+  } else if (selectedGroup && onUpdateGroup) {
+    body = <GroupProperties group={selectedGroup} onUpdate={onUpdateGroup} />;
   }
 
   return (
@@ -137,17 +166,15 @@ function NodeProperties({
 
       <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <BareField label="Shape" icon={<Layers size={11} />}>
-          <select
+          <BareSelect
+            ariaLabel="Node shape"
             value={currentShape}
-            onChange={(e) => onUpdate(node.id, { shape: e.target.value as NodeShape })}
-            style={selectStyle}
-          >
-            {NODE_SHAPES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onUpdate(node.id, { shape: v as NodeShape })}
+            sections={[
+              { label: 'Polished', options: POLISHED_NODE_SHAPES },
+              { label: 'Legacy', options: LEGACY_NODE_SHAPES },
+            ]}
+          />
         </BareField>
 
         <BareField label="Vector icon" icon={<ImageIcon size={11} />}>
@@ -182,23 +209,21 @@ function NodeProperties({
                 flexShrink: 0,
               }}
             >
-              {iconDef && iconDef.nodes && iconDef.nodes.length > 0 ? (
-                iconDef.source === 'lucide' && getLucideIcon(iconDef.name) ? (
-                  React.createElement(getLucideIcon(iconDef.name)!, {
-                    size: 12,
-                    color: 'var(--color-ink-2)',
-                  })
-                ) : iconDef.source === 'tabler' && getTablerIcon(iconDef.name) ? (
-                  React.createElement(getTablerIcon(iconDef.name)!, {
-                    size: 12,
-                    color: 'var(--color-ink-2)',
-                    stroke: 1.5,
-                  })
-                ) : (
-                  <svg viewBox={iconDef.viewBox || '0 0 24 24'} style={{ width: 12, height: 12, fill: 'var(--color-ink-2)' }}>
-                    <IconShapes def={iconDef} currentColor={false} />
-                  </svg>
-                )
+              {iconDef && iconDef.source === 'lucide' && getLucideIcon(iconDef.name) ? (
+                React.createElement(getLucideIcon(iconDef.name)!, {
+                  size: 12,
+                  color: 'var(--color-ink-2)',
+                })
+              ) : iconDef && iconDef.source === 'tabler' && getTablerIcon(iconDef.name) ? (
+                React.createElement(getTablerIcon(iconDef.name)!, {
+                  size: 12,
+                  color: 'var(--color-ink-2)',
+                  stroke: 1.5,
+                })
+              ) : iconDef && iconDef.nodes && iconDef.nodes.length > 0 ? (
+                <svg viewBox={iconDef.viewBox || '0 0 24 24'} style={{ width: 12, height: 12, fill: 'var(--color-ink-2)' }}>
+                  <IconShapes def={iconDef} currentColor={false} />
+                </svg>
               ) : (
                 <ImageIcon size={11} style={{ color: 'var(--color-ink-3)' }} />
               )}
@@ -366,18 +391,33 @@ function EdgeProperties({
 
         {data.animated && (
           <>
-            <BareField label="Speed">
-              <select
-                value={data.animationSpeed || 'normal'}
-                onChange={(e) =>
-                  onUpdate(edge.id, { data: { ...data, animationSpeed: e.target.value as EdgeAnimationSpeed } })
+            <BareField label="Animation">
+              <BareSelect
+                ariaLabel="Animation type"
+                value={data.animationType || 'particles'}
+                onChange={(v) =>
+                  onUpdate(edge.id, { data: { ...data, animationType: v as EdgeAnimationType } })
                 }
-                style={selectStyle}
-              >
-                <option value="slow">slow · 3.5s</option>
-                <option value="normal">normal · 2.2s</option>
-                <option value="fast">fast · 1.2s</option>
-              </select>
+                options={[
+                  { id: 'particles', label: 'particles · dot flow' },
+                  { id: 'dash_flow', label: 'dash flow · marching ants' },
+                  { id: 'pulse', label: 'pulse · rhythmic stroke' },
+                ]}
+              />
+            </BareField>
+            <BareField label="Speed">
+              <BareSelect
+                ariaLabel="Animation speed"
+                value={data.animationSpeed || 'normal'}
+                onChange={(v) =>
+                  onUpdate(edge.id, { data: { ...data, animationSpeed: v as EdgeAnimationSpeed } })
+                }
+                options={[
+                  { id: 'slow', label: 'slow · 3.5s' },
+                  { id: 'normal', label: 'normal · 2.2s' },
+                  { id: 'fast', label: 'fast · 1.2s' },
+                ]}
+              />
             </BareField>
             <ColorRow
               label="particle"
@@ -390,28 +430,30 @@ function EdgeProperties({
         <Divider />
 
         <BareField label="Routing">
-          <select
+          <BareSelect
+            ariaLabel="Edge routing"
             value={routing}
-            onChange={(e) => onUpdate(edge.id, { routing: e.target.value as EdgeRouting })}
-            style={selectStyle}
-          >
-            <option value="orthogonal">fillet orthogonal</option>
-            <option value="curved">bezier curve</option>
-            <option value="step">step orthogonal</option>
-            <option value="straight">straight</option>
-          </select>
+            onChange={(v) => onUpdate(edge.id, { routing: v as EdgeRouting })}
+            options={[
+              { id: 'orthogonal', label: 'fillet orthogonal' },
+              { id: 'curved', label: 'bezier curve' },
+              { id: 'step', label: 'step orthogonal' },
+              { id: 'straight', label: 'straight' },
+            ]}
+          />
         </BareField>
 
         <BareField label="Stroke style">
-          <select
+          <BareSelect
+            ariaLabel="Stroke style"
             value={edgeStyle}
-            onChange={(e) => onUpdate(edge.id, { style: e.target.value as EdgeStyle })}
-            style={selectStyle}
-          >
-            <option value="solid">solid</option>
-            <option value="dashed">dashed</option>
-            <option value="dotted">dotted</option>
-          </select>
+            onChange={(v) => onUpdate(edge.id, { style: v as EdgeStyle })}
+            options={[
+              { id: 'solid', label: 'solid' },
+              { id: 'dashed', label: 'dashed' },
+              { id: 'dotted', label: 'dotted' },
+            ]}
+          />
         </BareField>
 
         <Divider />
@@ -587,6 +629,138 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 0,
 };
 
+/**
+ * Bare-styled HeroUI Select that matches the editor's hairline-underline
+ * look. Replaces the native `<select>` so the dropdown options get a
+ * proper dark-themed popover and styled list rows.
+ *
+ * Accepts either a flat `options` list or a `sections` list for grouped
+ * dropdowns (used by Shape to separate polished from legacy shapes).
+ */
+type BareSelectOption = { id: string; label: string };
+type BareSelectSection = { label: string; options: BareSelectOption[] };
+
+// Shared class strings used by HeroUI 3.2 components. Their typings only
+// accept `className`, so we concatenate the Tailwind v4 important-modifier
+// utilities into a single string rather than passing the `classNames` map.
+const TRIGGER_CLASS =
+  '!h-8 !bg-transparent !border-0 !border-b !border-b-[var(--color-hairline)] !rounded-none !px-1 !shadow-none data-[hover=true]:!bg-transparent';
+const VALUE_CLASS = '!text-[13px] !font-sans !text-[var(--color-ink)]';
+const POPOVER_CLASS =
+  '!bg-[var(--color-bg-raised)] !border !border-[var(--color-hairline)] !rounded-md';
+const LISTBOX_CLASS = '!p-1 !bg-transparent';
+const ITEM_CLASS =
+  '!rounded-sm !text-[13px] !text-[var(--color-ink)] data-[hover=true]:!bg-[var(--color-bg)] data-[hover=true]:!text-[var(--color-ink)] data-[selected=true]:!text-[var(--color-accent)]';
+const SECTION_HEADING_CLASS =
+  '!text-[10px] !uppercase !tracking-[0.06em] !font-mono !text-[var(--color-ink-3)] !px-2 !pt-2 !pb-1';
+
+function BareSelect({
+  value,
+  onChange,
+  options,
+  sections,
+  placeholder,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  options?: BareSelectOption[];
+  sections?: BareSelectSection[];
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  // Build a flat list of options for the popover rows.
+  const flatOptions: BareSelectOption[] = options ?? (sections ? sections.flatMap((s) => s.options) : []);
+
+  // HeroUI's TS surface for Select/ListBox/ListBoxItem/ListBoxSection in
+  // 3.2.4 only exposes `className` and a few other primitive props, so we
+  // cast through `any` to keep the styling we want without losing the
+  // composition API.
+  const SelectAny = Select as any;
+  const TriggerAny = (Select as any).Trigger;
+  const ValueAny = (Select as any).Value;
+  const IndicatorAny = (Select as any).Indicator;
+  const PopoverAny = (Select as any).Popover;
+  const ListBoxAny = ListBox as any;
+  const SectionAny = (ListBox as any).Section;
+  const ItemAny = (ListBox as any).Item;
+
+  return (
+    <SelectAny
+      aria-label={ariaLabel}
+      selectedKey={value}
+      onSelectionChange={(keys: unknown) => {
+        if (keys == null) return;
+        let next: string | undefined;
+        if (typeof keys === 'string') next = keys;
+        else if (typeof (keys as { has?: unknown }).has === 'function') {
+          // HeroUI passes a `Selection` (a Set-like) for single mode.
+          const setLike = keys as Set<string>;
+          const first = setLike.values().next().value as string | undefined;
+          next = first;
+        }
+        if (next && next !== value) onChange(next);
+      }}
+    >
+      <TriggerAny className={TRIGGER_CLASS}>
+        <ValueAny className={VALUE_CLASS}>
+          <span
+            style={{
+              fontSize: 13,
+              color:
+                flatOptions.find((o) => o.id === value)?.label ||
+                sections?.flatMap((s) => s.options).find((o) => o.id === value)?.label
+                  ? 'var(--color-ink)'
+                  : 'var(--color-ink-3)',
+            }}
+          >
+            {flatOptions.find((o) => o.id === value)?.label ||
+              sections?.flatMap((s) => s.options).find((o) => o.id === value)?.label ||
+              placeholder}
+          </span>
+        </ValueAny>
+        <IndicatorAny>
+          <ChevronDown size={12} style={{ color: 'var(--color-ink-2)' }} />
+        </IndicatorAny>
+      </TriggerAny>
+      <PopoverAny placement="bottom start" className={POPOVER_CLASS}>
+        <ListBoxAny aria-label={ariaLabel} className={LISTBOX_CLASS}>
+          {sections
+            ? sections.map((section: BareSelectSection) => (
+                <SectionAny
+                  key={section.label}
+                  id={section.label}
+                  title={section.label}
+                  className={SECTION_HEADING_CLASS}
+                >
+                  {section.options.map((opt) => (
+                    <ItemAny
+                      key={opt.id}
+                      id={opt.id}
+                      textValue={opt.label}
+                      className={ITEM_CLASS}
+                    >
+                      {opt.label}
+                    </ItemAny>
+                  ))}
+                </SectionAny>
+              ))
+            : flatOptions.map((opt) => (
+                <ItemAny
+                  key={opt.id}
+                  id={opt.id}
+                  textValue={opt.label}
+                  className={ITEM_CLASS}
+                >
+                  {opt.label}
+                </ItemAny>
+              ))}
+        </ListBoxAny>
+      </PopoverAny>
+    </SelectAny>
+  );
+}
+
 const inputBareStyle: React.CSSProperties = {
   width: '100%',
   background: 'transparent',
@@ -599,3 +773,123 @@ const inputBareStyle: React.CSSProperties = {
   outline: 'none',
   borderRadius: 0,
 };
+
+const GROUP_STYLE_OPTIONS: { id: GroupStyle; label: string }[] = [
+  { id: 'boundary', label: 'Boundary' },
+  { id: 'container', label: 'Container' },
+  { id: 'swimlane', label: 'Swimlane' },
+  { id: 'card', label: 'Card' },
+];
+
+// A group can borrow colors from any node role. We list the canonical
+// roles here; the renderer / React node will silently fall back to the
+// per-style default if the role key is missing from the theme.
+const GROUP_COLOR_ROLE_OPTIONS: { id: string; label: string }[] = [
+  { id: '__default__', label: 'Theme default' },
+  { id: 'client', label: 'Client' },
+  { id: 'compute', label: 'Compute' },
+  { id: 'storage', label: 'Storage' },
+  { id: 'messaging', label: 'Messaging' },
+  { id: 'cache', label: 'Cache' },
+  { id: 'network', label: 'Network' },
+  { id: 'security', label: 'Security' },
+  { id: 'monitoring', label: 'Monitoring' },
+  { id: 'external', label: 'External' },
+  { id: 'general', label: 'General' },
+];
+
+function GroupProperties({
+  group,
+  onUpdate,
+}: {
+  group: DiagramGroup;
+  onUpdate: (id: string, updates: Partial<DiagramGroup>) => void;
+}) {
+  return (
+    <aside
+      style={{
+        width: 280,
+        flexShrink: 0,
+        background: 'var(--color-bg)',
+        borderLeft: '1px solid var(--color-hairline)',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <SectionTitle title="Group" tag={group.id.slice(0, 16)} />
+
+      <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <BareField label="Title">
+          <input
+            type="text"
+            value={group.title}
+            onChange={(e) => onUpdate(group.id, { title: e.target.value })}
+            style={inputBareStyle}
+          />
+        </BareField>
+
+        <BareField label="Subtitle">
+          <input
+            type="text"
+            value={group.subtitle ?? ''}
+            onChange={(e) => onUpdate(group.id, { subtitle: e.target.value })}
+            style={inputBareStyle}
+          />
+        </BareField>
+
+        <BareField label="Style">
+          <BareSelect
+            value={group.style ?? 'boundary'}
+            onChange={(v) => onUpdate(group.id, { style: v as GroupStyle })}
+            options={GROUP_STYLE_OPTIONS}
+            ariaLabel="Group style"
+          />
+        </BareField>
+
+        <BareField label="Color role">
+          <BareSelect
+            value={group.colorRole ?? '__default__'}
+            onChange={(v) =>
+              onUpdate(group.id, { colorRole: v === '__default__' ? undefined : v })
+            }
+            options={GROUP_COLOR_ROLE_OPTIONS}
+            ariaLabel="Group color role"
+          />
+        </BareField>
+
+        <Divider />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span className="t-mono" style={{ color: 'var(--color-ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 10 }}>
+            Size
+          </span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <BareField label="W">
+              <input
+                type="number"
+                min={80}
+                value={Math.round(group.size.width)}
+                onChange={(e) =>
+                  onUpdate(group.id, { size: { ...group.size, width: Math.max(80, Number(e.target.value) || 80) } })
+                }
+                style={inputBareStyle}
+              />
+            </BareField>
+            <BareField label="H">
+              <input
+                type="number"
+                min={60}
+                value={Math.round(group.size.height)}
+                onChange={(e) =>
+                  onUpdate(group.id, { size: { ...group.size, height: Math.max(60, Number(e.target.value) || 60) } })
+                }
+                style={inputBareStyle}
+              />
+            </BareField>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

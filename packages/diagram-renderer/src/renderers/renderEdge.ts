@@ -40,18 +40,53 @@ export function renderEdgeSvg(
   const flowColor = data?.flowColor ?? theme.edges.strokeActive;
   const speedSec =
     data?.animationSpeed === 'fast' ? '1.2s' : data?.animationSpeed === 'slow' ? '3.5s' : '2.2s';
+  const animationType = data?.animationType ?? 'particles';
 
-  // Particle flow — only one set; the larger glow underlay reads as motion.
-  const particleAnimation = isAnimated
-    ? `
-      <circle r="7" fill="${flowColor}" opacity="0.18">
-        <animateMotion dur="${speedSec}" repeatCount="indefinite" path="${pathD}" />
-      </circle>
-      <circle r="3" fill="${flowColor}" opacity="0.95">
-        <animateMotion dur="${speedSec}" repeatCount="indefinite" path="${pathD}" />
-      </circle>
-    `
-    : '';
+  // ─── Animation overlays ───────────────────────────────────────────────
+  // Three styles: 'particles' (default) = dots flowing along the path,
+  // 'dash_flow' = the stroke itself marches (good for solid/dashed lines),
+  // 'pulse' = stroke fades in and out rhythmically along its length.
+  let animationOverlay = '';
+  let dashFlowStrokeAttrs = '';
+  if (isAnimated) {
+    if (animationType === 'dash_flow') {
+      // Marching-ants effect: animate stroke-dashoffset on the main path.
+      // We override the user's static dasharray for the animated copy only.
+      dashFlowStrokeAttrs = `stroke-dasharray="6 4" stroke-dashoffset="0" style="animation: dash-flow-${escapeXml(id)} ${speedSec} linear infinite"`;
+      animationOverlay = `
+        <style>
+          @keyframes dash-flow-${escapeXml(id)} {
+            from { stroke-dashoffset: 0; }
+            to   { stroke-dashoffset: -20; }
+          }
+        </style>
+      `;
+    } else if (animationType === 'pulse') {
+      // Stroke breathes — opacity oscillates between 0.3 and 1.0.
+      animationOverlay = `
+        <style>
+          @keyframes pulse-edge-${escapeXml(id)} {
+            0%   { opacity: 0.3; }
+            50%  { opacity: 1.0; }
+            100% { opacity: 0.3; }
+          }
+          #path-${escapeXml(id)} {
+            animation: pulse-edge-${escapeXml(id)} ${speedSec} ease-in-out infinite;
+          }
+        </style>
+      `;
+    } else {
+      // particles — dot flow with a glow underlay.
+      animationOverlay = `
+        <circle r="7" fill="${flowColor}" opacity="0.18">
+          <animateMotion dur="${speedSec}" repeatCount="indefinite" path="${pathD}" />
+        </circle>
+        <circle r="3" fill="${flowColor}" opacity="0.95">
+          <animateMotion dur="${speedSec}" repeatCount="indefinite" path="${pathD}" />
+        </circle>
+      `;
+    }
+  }
 
   let labelSvg = '';
   if (data?.label || data?.stepNumber !== undefined) {
@@ -105,12 +140,13 @@ export function renderEdgeSvg(
         fill="none"
         stroke="${strokeColor}"
         stroke-width="${strokeWidth}"
-        stroke-dasharray="${strokeDasharray}"
+        stroke-dasharray="${dashFlowStrokeAttrs ? '' : strokeDasharray}"
         stroke-linecap="round"
         stroke-linejoin="round"
         marker-end="url(#marker-arrow-end)"
+        ${dashFlowStrokeAttrs}
       />
-      ${particleAnimation}
+      ${animationOverlay}
       ${labelSvg}
     </g>
   `.trim();

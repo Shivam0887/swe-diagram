@@ -19,11 +19,13 @@ import type {
   DiagramDocument,
   DiagramNode,
   DiagramEdge,
+  DiagramGroup,
   NodeType,
   NodeShape,
   ThemeId,
   Point,
   CustomCollection,
+  GroupStyle,
 } from '@platform/diagram-schema';
 import { sampleDiagrams } from '@platform/diagram-schema';
 import {
@@ -37,13 +39,21 @@ import {
   UpdateEdgeCommand,
   ChangeThemeCommand,
   UpdateMetadataCommand,
+  InsertGroupCommand,
+  UpdateGroupCommand,
+  MoveGroupCommand,
+  DeleteGroupCommand,
+  AssignNodesToGroupCommand,
+  AssignNodeGroupCommand,
   createNodeId,
   createEdgeId,
+  createGroupId,
   getNodeDefinition,
 } from '@platform/diagram-core';
 import { computeElkLayout } from '@platform/diagram-layout';
 
 import { CustomDiagramNode } from '../../components/editor/CustomDiagramNode';
+import { CustomGroupNode } from '../../components/editor/CustomGroupNode';
 import { FilletOrthogonalEdge } from '../../components/editor/FilletOrthogonalEdge';
 import { BezierCurvedEdge } from '../../components/editor/BezierCurvedEdge';
 import { StraightEdge } from '../../components/editor/StraightEdge';
@@ -54,7 +64,10 @@ import { EditorToolbar } from '../../components/editor/EditorToolbar';
 import { ExportModal } from '../../components/editor/ExportModal';
 import { AiCopilotPanel } from '../../components/editor/AiCopilotPanel';
 
-const nodeTypes = { customDiagramNode: CustomDiagramNode };
+const nodeTypes = {
+  customDiagramNode: CustomDiagramNode,
+  customGroupNode: CustomGroupNode,
+};
 const edgeTypes = {
   filletOrthogonal: FilletOrthogonalEdge,
   bezierCurved: BezierCurvedEdge,
@@ -104,10 +117,13 @@ function EditorCanvasContent() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
 
   // Refresh undo/redo state for the toolbar
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
@@ -153,8 +169,34 @@ function EditorCanvasContent() {
   }, [handleUndo, handleRedo]);
 
   const flowNodes: Node[] = useMemo(
-    () =>
-      doc.nodes.map((node) => ({
+    () => {
+      // Groups first so they sit behind the actual nodes (zIndex default).
+      const groupNodes: Node[] = (doc.groups ?? []).map((g) => ({
+        id: g.id,
+        type: 'customGroupNode',
+        position: g.position,
+        // React Flow expects width/height at the top level of a node.
+        width: g.size.width,
+        height: g.size.height,
+        // Groups are not drag-selectable in the standard sense; they
+        // take their own position from the group's position field and
+        // can't be connected to other nodes.
+        data: {
+          title: g.title,
+          subtitle: g.subtitle,
+          style: g.style ?? 'boundary',
+          colorRole: g.colorRole,
+          themeId: doc.theme,
+        },
+        selected: g.id === selectedGroupId,
+        // Make sure groups don't show handles or get auto-connected.
+        draggable: true,
+        selectable: true,
+        connectable: false,
+        zIndex: -1,
+        deletable: true,
+      }));
+      const diagramNodes: Node[] = doc.nodes.map((node) => ({
         id: node.id,
         type: 'customDiagramNode',
         position: node.position,
@@ -165,8 +207,11 @@ function EditorCanvasContent() {
           themeId: doc.theme,
         },
         selected: node.id === selectedNodeId,
-      })),
-    [doc.nodes, doc.theme, selectedNodeId]
+        parentId: node.groupId,
+      }));
+      return [...groupNodes, ...diagramNodes];
+    },
+    [doc.nodes, doc.groups, doc.theme, selectedNodeId, selectedGroupId]
   );
 
   const flowEdges: Edge[] = useMemo(
@@ -193,16 +238,34 @@ function EditorCanvasContent() {
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       for (const change of changes) {
-        if (change.type === 'remove') executeCommand(new DeleteNodeCommand(change.id));
-        else if (change.type === 'select') {
+        if (change.type === 'remove') {
+          // Groups and nodes share the React Flow `nodes` channel; route
+          // removes to the right command based on which collection the
+          // id belongs to.
+          if ((doc.groups ?? []).some((g) => g.id === change.id)) {
+            executeCommand(new DeleteGroupCommand(change.id));
+          } else {
+            executeCommand(new DeleteNodeCommand(change.id));
+          }
+        } else if (change.type === 'select') {
           if (change.selected) {
-            setSelectedNodeId(change.id);
-            setSelectedEdgeId(null);
-          } else if (selectedNodeId === change.id) setSelectedNodeId(null);
+            if ((doc.groups ?? []).some((g) => g.id === change.id)) {
+              setSelectedGroupId(change.id);
+              setSelectedNodeId(null);
+              setSelectedEdgeId(null);
+            } else {
+              setSelectedNodeId(change.id);
+              setSelectedEdgeId(null);
+              setSelectedGroupId(null);
+            }
+          } else {
+            if (selectedNodeId === change.id) setSelectedNodeId(null);
+            if (selectedGroupId === change.id) setSelectedGroupId(null);
+          }
         }
       }
     },
-    [executeCommand, selectedNodeId]
+    [executeCommand, selectedNodeId, selectedGroupId, doc.groups]
   );
 
   const onEdgesChange = useCallback(
@@ -237,17 +300,27 @@ function EditorCanvasContent() {
 
   const onNodeDragStop = useCallback(
     (_: any, node: Node) => {
+      // Groups and nodes share the React Flow nodes channel; dispatch
+      // to the right command based on which collection the id belongs to.
+      const group = (doc.groups ?? []).find((g) => g.id === node.id);
+      if (group) {
+        const next: Point = { x: node.position.x, y: node.position.y };
+        if (group.position.x === next.x && group.position.y === next.y) return;
+        executeCommand(new MoveGroupCommand(node.id, next, group.position));
+        return;
+      }
       const existing = doc.nodes.find((n) => n.id === node.id);
       if (!existing) return;
       if (existing.position.x === node.position.x && existing.position.y === node.position.y) return;
       executeCommand(new MoveNodeCommand(node.id, node.position, existing.position));
     },
-    [doc.nodes, executeCommand]
+    [doc.nodes, doc.groups, executeCommand]
   );
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
+    setSelectedGroupId(null);
   }, []);
 
   const handleAddNode = useCallback(
@@ -318,6 +391,68 @@ function EditorCanvasContent() {
       executeCommand(new UpdateEdgeCommand(edgeId, updates, existing));
     },
     [doc.edges, executeCommand]
+  );
+
+  const handleAddGroup = useCallback(
+    (style: 'boundary' | 'container' | 'swimlane' | 'card' = 'container') => {
+      const newGroup: DiagramGroup = {
+        id: createGroupId(),
+        title: 'New group',
+        subtitle: '',
+        style,
+        position: { x: 120, y: 120 },
+        size: { width: 360, height: 240 },
+      };
+      executeCommand(new InsertGroupCommand(newGroup));
+      setSelectedGroupId(newGroup.id);
+    },
+    [executeCommand]
+  );
+
+  // Wrap currently-selected nodes in a new group. Computes a bounding
+  // box from the selected nodes (with 32px padding) and assigns them.
+  const handleGroupSelection = useCallback(() => {
+    if (!selectedNodeId) return;
+    const selectedIds = new Set(
+      doc.nodes.filter((n) => n.id === selectedNodeId).map((n) => n.id)
+    );
+    if (selectedIds.size === 0) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of doc.nodes) {
+      if (!selectedIds.has(n.id)) continue;
+      minX = Math.min(minX, n.position.x);
+      minY = Math.min(minY, n.position.y);
+      maxX = Math.max(maxX, n.position.x + n.size.width);
+      maxY = Math.max(maxY, n.position.y + n.size.height);
+    }
+    if (!Number.isFinite(minX)) return;
+    const pad = 32;
+    const newGroup: DiagramGroup = {
+      id: createGroupId(),
+      title: 'Group',
+      subtitle: '',
+      style: 'container',
+      position: { x: minX - pad, y: minY - pad },
+      size: { width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 },
+    };
+    // Insert the group, then assign the nodes in a second command so
+    // both appear in the undo stack independently.
+    executeCommand(new InsertGroupCommand(newGroup));
+    executeCommand(new AssignNodesToGroupCommand(newGroup.id, Array.from(selectedIds)));
+    setSelectedGroupId(newGroup.id);
+    setSelectedNodeId(null);
+  }, [doc.nodes, executeCommand, selectedNodeId]);
+
+  const handleUpdateGroup = useCallback(
+    (groupId: string, updates: Partial<DiagramGroup>) => {
+      const existing = (doc.groups ?? []).find((g) => g.id === groupId);
+      if (!existing) return;
+      executeCommand(new UpdateGroupCommand(groupId, updates, existing));
+    },
+    [doc.groups, executeCommand]
   );
 
   const handleAutoLayout = useCallback(async () => {
@@ -421,6 +556,10 @@ function EditorCanvasContent() {
     () => doc.edges.find((e) => e.id === selectedEdgeId) ?? null,
     [doc.edges, selectedEdgeId]
   );
+  const selectedGroup = useMemo(
+    () => (doc.groups ?? []).find((g) => g.id === selectedGroupId) ?? null,
+    [doc.groups, selectedGroupId]
+  );
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -439,17 +578,25 @@ function EditorCanvasContent() {
         onLoadTemplate={handleLoadTemplate}
         onOpenCopilot={() => setCopilotOpen((v) => !v)}
         isSaving={isSaving}
+        paletteOpen={paletteOpen}
+        onTogglePalette={() => setPaletteOpen((v) => !v)}
+        propertiesOpen={propertiesOpen}
+        onToggleProperties={() => setPropertiesOpen((v) => !v)}
       />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <ComponentPalette
-          onAddNode={handleAddNode}
-          collections={collections}
-          onSaveToCollection={handleSaveToCollection}
-          onCreateCollection={handleCreateCollection}
-          onDeleteCollectionItem={handleDeleteCollectionItem}
-          selectedNode={selectedNode}
-        />
+        {paletteOpen && (
+          <ComponentPalette
+            onAddNode={handleAddNode}
+            collections={collections}
+            onSaveToCollection={handleSaveToCollection}
+            onCreateCollection={handleCreateCollection}
+            onDeleteCollectionItem={handleDeleteCollectionItem}
+            selectedNode={selectedNode}
+            onAddGroup={handleAddGroup}
+            onGroupSelection={handleGroupSelection}
+          />
+        )}
 
         <div ref={reactFlowWrapper} style={{ flex: 1, position: 'relative', background: 'var(--color-bg)' }}>
           <ReactFlow
@@ -476,21 +623,24 @@ function EditorCanvasContent() {
           </ReactFlow>
         </div>
 
-        {copilotOpen ? (
-          <AiCopilotPanel
-            doc={doc}
-            isOpen={copilotOpen}
-            onClose={() => setCopilotOpen(false)}
-            onApplyCommand={executeCommand}
-          />
-        ) : (
-          <PropertiesPanel
-            selectedNode={selectedNode}
-            selectedEdge={selectedEdge}
-            onUpdateNode={handleUpdateNode}
-            onUpdateEdge={handleUpdateEdge}
-          />
-        )}
+        {propertiesOpen &&
+          (copilotOpen ? (
+            <AiCopilotPanel
+              doc={doc}
+              isOpen={copilotOpen}
+              onClose={() => setCopilotOpen(false)}
+              onApplyCommand={executeCommand}
+            />
+          ) : (
+            <PropertiesPanel
+              selectedNode={selectedNode}
+              selectedEdge={selectedEdge}
+              selectedGroup={selectedGroup}
+              onUpdateNode={handleUpdateNode}
+              onUpdateEdge={handleUpdateEdge}
+              onUpdateGroup={handleUpdateGroup}
+            />
+          ))}
       </div>
 
       <ExportModal
