@@ -20,7 +20,14 @@ import { escapeXml } from '../utils/sanitize';
 export function renderGroupSvg(group: DiagramGroup, theme: Theme): string {
   const { x, y } = group.position;
   const { width, height } = group.size;
-  const title = escapeXml(group.title);
+  // The swimlane / card / container renderers all print the title in
+  // uppercase typographic style. Uppercase FIRST, then XML-escape, so
+  // entity refs like `&amp;` aren't capitalised to `&AMP;` (XML entity
+  // names are case-sensitive — `&AMP;` is undefined and the parser
+  // reports "Entity 'AMP' not defined" on the column the attribute lands
+  // in).
+  const titleUpperEscaped = escapeXml((group.title ?? '').toUpperCase());
+  const titleEscaped = escapeXml(group.title ?? '');
   const subtitle = escapeXml(group.subtitle ?? '');
 
   // Resolve the active color trio. If colorRole is set, the group's
@@ -86,7 +93,7 @@ export function renderGroupSvg(group: DiagramGroup, theme: Theme): string {
       <g id="group-${escapeXml(group.id)}" class="diagram-group group-${style}">
         <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${theme.tokens.radius.md}" fill="${fill}" stroke="${stroke}" stroke-width="${theme.tokens.strokes.default}" />
         <path d="M ${x} ${y + bandH} L ${x + width} ${y + bandH}" stroke="${accentStroke}" stroke-width="1" />
-        <text x="${x + 16}" y="${y + 24}" font-family="${fontFamily}" font-size="13" font-weight="700" fill="${textCol}" style="letter-spacing: 0.04em">${title.toUpperCase()}</text>
+        <text x="${x + 16}" y="${y + 24}" font-family="${fontFamily}" font-size="13" font-weight="700" fill="${textCol}" style="letter-spacing: 0.04em">${titleUpperEscaped}</text>
         ${subtitle
           ? `<text x="${x + 16}" y="${y + bandH + 18}" font-family="${fontFamily}" font-size="11" font-weight="400" fill="${theme.isDark ? '#94a3b8' : '#64748b'}">${subtitle}</text>`
           : ''}
@@ -101,7 +108,7 @@ export function renderGroupSvg(group: DiagramGroup, theme: Theme): string {
       <g id="group-${escapeXml(group.id)}" class="diagram-group group-${style}">
         <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${theme.tokens.radius.lg}" fill="${fill}" stroke="${stroke}" stroke-width="1.5" />
         <rect x="${x}" y="${y}" width="${Math.min(140, width - 24)}" height="22" rx="11" fill="${hexWithAlpha(stroke, 0.18)}" stroke="${hexWithAlpha(stroke, 0.4)}" stroke-width="1" />
-        <text x="${x + 12}" y="${y + 15}" font-family="${fontFamily}" font-size="11" font-weight="600" fill="${textCol}" style="letter-spacing: 0.04em">${title.toUpperCase()}</text>
+        <text x="${x + 12}" y="${y + 15}" font-family="${fontFamily}" font-size="11" font-weight="600" fill="${textCol}" style="letter-spacing: 0.04em">${titleUpperEscaped}</text>
         ${subtitle
           ? `<text x="${x + 12}" y="${y + 38}" font-family="${fontFamily}" font-size="11" font-weight="400" fill="${theme.isDark ? '#94a3b8' : '#64748b'}">${subtitle}</text>`
           : ''}
@@ -113,7 +120,7 @@ export function renderGroupSvg(group: DiagramGroup, theme: Theme): string {
   return `
     <g id="group-${escapeXml(group.id)}" class="diagram-group group-${style}">
       <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${theme.tokens.radius.lg}" fill="${fill}" stroke="${stroke}" stroke-width="${theme.tokens.strokes.default}" ${strokeDash} />
-      <text x="${x + 16}" y="${y + 26}" font-family="${fontFamily}" font-size="13" font-weight="700" fill="${textCol}" style="letter-spacing: 0.04em">${title.toUpperCase()}</text>
+      <text x="${x + 16}" y="${y + 26}" font-family="${fontFamily}" font-size="13" font-weight="700" fill="${textCol}" style="letter-spacing: 0.04em">${titleUpperEscaped}</text>
       ${subtitle
         ? `<text x="${x + 16}" y="${y + 44}" font-family="${fontFamily}" font-size="11" font-weight="400" fill="${theme.isDark ? '#94a3b8' : '#64748b'}">${subtitle}</text>`
         : ''}

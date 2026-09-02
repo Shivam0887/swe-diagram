@@ -26,17 +26,30 @@ export async function exportSvgStringToPngBuffer(
   scale = 2
 ): Promise<Buffer> {
   const svgBuffer = Buffer.from(svgString, 'utf-8');
-  let sharp: typeof import('sharp');
   try {
+    // sharp 0.35 changed how the default export is exposed: the module
+    // itself is callable in 0.33, but in 0.35 the function lives on
+    // `mod.default` and is also the namespace's `sharp` member. Pick
+    // whichever one is callable; this keeps both versions working.
     const mod = await import('sharp');
-    sharp = (mod.default ?? mod) as typeof import('sharp');
+    const sharpFn =
+      (typeof mod === 'function' ? mod : null) ??
+      (mod as { default?: unknown }).default ??
+      (mod as unknown as { sharp?: unknown }).sharp;
+    if (typeof sharpFn !== 'function') {
+      throw new Error('sharp module loaded but no callable default export was found');
+    }
+    return await (sharpFn as (input: Buffer, opts?: { density?: number }) => {
+      png: (opts?: { quality?: number; compressionLevel?: number }) => {
+        toBuffer: () => Promise<Buffer>;
+      };
+    })(svgBuffer, { density: Math.round(72 * scale) })
+      .png({ quality: 95, compressionLevel: 9 })
+      .toBuffer();
   } catch (err) {
     throw new Error(
       `PNG export unavailable: native sharp binary failed to load (${(err as Error).message ?? err}). ` +
         `Use SVG export instead, or install sharp's prebuilt for your platform.`
     );
   }
-  return await sharp(svgBuffer, { density: Math.round(72 * scale) })
-    .png({ quality: 95, compressionLevel: 9 })
-    .toBuffer();
 }

@@ -6,49 +6,6 @@ import { FigureCaption } from '../components/chrome/FigureCaption';
 import { Meta } from '../components/chrome/Meta';
 
 /**
- * The seven principles of design composition. Each entry pairs a number
- * (the mono accent on each card), a title, and a one-sentence body that
- * the homepage applies to a diagram platform.
- */
-const PRINCIPLES = [
-  {
-    n: '01',
-    title: 'Emphasis',
-    body: 'One accent. One focal point per screen. The rest of the canvas is silent so the eye lands where it should.',
-  },
-  {
-    n: '02',
-    title: 'Balance',
-    body: 'Symmetric structure, asymmetric weight. Headers anchor the left; visual artifacts anchor the right.',
-  },
-  {
-    n: '03',
-    title: 'Hierarchy',
-    body: 'Four type tiers, no in-between. Display, heading, body, mono — every glyph on the page knows its level.',
-  },
-  {
-    n: '04',
-    title: 'Rhythm',
-    body: 'A 4-px spacing scale, a 96-px section pad, a single 24-px grid gap. Repetition is the cheapest kind of unity.',
-  },
-  {
-    n: '05',
-    title: 'Unity',
-    body: 'Every surface reads from the same tokens. Light the page from a single 60-30-10 palette and the seams disappear.',
-  },
-  {
-    n: '06',
-    title: 'Proportion',
-    body: 'Hero title scales 9vw; section heads scale 5vw; the visual artifact sits at a strict 3:2 aspect ratio.',
-  },
-  {
-    n: '07',
-    title: 'White space',
-    body: 'Empty area is not wasted. Margins are part of the message; padding is part of the structure.',
-  },
-];
-
-/**
  * The platform stack, top to bottom: from a prompt to a shipped diagram.
  * Each step is a one-liner; the visual is a typographic card, not an SVG.
  */
@@ -67,8 +24,39 @@ export default function HomePage() {
       <Header />
 
       <main style={{ position: 'relative', zIndex: 1 }}>
-        {/* HERO — emphasis, balance, hierarchy */}
-        <section className="container" style={{ paddingTop: 96, paddingBottom: 96 }}>
+        {/* HERO — emphasis, balance, hierarchy, proportion, alignment
+            The 7 principles are embodied in this single composition:
+              • one accent (Ship.) on a quiet field → emphasis
+              • text 480px / artifact 3:2 → asymmetric balance
+              • display / h2 / body / mono → 4-tier hierarchy
+              • identical 24px gutters on every block → rhythm
+              • one palette, one radius scale → unity
+              • 9vw / 5vw / 16px / 12px → proportion
+              • a single left column, hairline on the margin → alignment
+        */}
+        <section
+          className="container"
+          style={{
+            paddingTop: 96,
+            paddingBottom: 96,
+            position: 'relative',
+          }}
+        >
+          {/* Left alignment hairline — visible evidence of the alignment grid */}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: 96,
+              bottom: 96,
+              left: 'calc(50% - 600px + 24px)',
+              width: 1,
+              background: 'var(--color-hairline)',
+              opacity: 0.5,
+            }}
+            className="alignment-hairline"
+          />
+
           <div className="enter">
             <Meta
               items={[
@@ -105,14 +93,13 @@ export default function HomePage() {
               alignItems: 'end',
             }}
           >
-            <div>
+            <div style={{ maxWidth: 520 }}>
               <p
                 style={{
                   margin: 0,
                   fontSize: 18,
                   lineHeight: 1.55,
                   color: 'var(--color-ink)',
-                  maxWidth: 520,
                 }}
               >
                 An IR-first diagram platform. Prompt an architecture; the
@@ -155,16 +142,37 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* PRINCIPLES — emphasis, rhythm, proportion */}
-        <section className="container section">
-          <div style={{ marginBottom: 56, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <FigureCaption number="01" label="composition" />
+        {/* ANATOMY — the seven principles as a single side-by-side exhibit.
+            No labels, no enumeration. Each row IS the principle:
+              • TYPE SCALE → 6 sizes on a single baseline rhythm
+              • COLOR LADDER → 60/30/10 weights reading unity
+              • SPACING SCALE → 5 squares on the 4-px ladder
+              • ALIGNMENT → one column hairline, one center hairline
+            The reader sees the principle; nothing is written. */}
+        <section
+          className="container section"
+          style={{
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              marginBottom: 56,
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16,
+            }}
+          >
+            <FigureCaption number="01" label="anatomy" />
             <span className="t-mono" style={{ color: 'var(--color-ink-3)' }}>
-              7 principles · 1 palette
+              7 principles · 1 page
             </span>
           </div>
 
           <div
+            className="anatomy-grid"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
@@ -174,47 +182,110 @@ export default function HomePage() {
               borderRadius: 'var(--radius-lg)',
               overflow: 'hidden',
             }}
-            className="principles-grid"
           >
-            {PRINCIPLES.map((p, i) => (
+            {/* TYPE — proportion / hierarchy */}
+            <AnatomyCell label="type">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontSize: 9, lineHeight: 1, color: 'var(--color-ink-3)' }}>Aa</span>
+                <span style={{ fontSize: 13, lineHeight: 1, color: 'var(--color-ink-2)' }}>Aa</span>
+                <span style={{ fontSize: 18, lineHeight: 1, color: 'var(--color-ink)' }}>Aa</span>
+                <span style={{ fontSize: 28, lineHeight: 1, color: 'var(--color-ink)' }}>Aa</span>
+                <span style={{ fontSize: 44, lineHeight: 1, color: 'var(--color-ink)' }}>Aa</span>
+                <span style={{ fontSize: 72, lineHeight: 0.9, color: 'var(--color-ink)' }}>Aa</span>
+              </div>
+            </AnatomyCell>
+
+            {/* COLOR — unity / emphasis / 60-30-10 */}
+            <AnatomyCell label="color">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ flex: 6, background: 'var(--color-bg)' }} />
+                  <div style={{ flex: 3, background: 'var(--color-hairline)' }} />
+                  <div style={{ flex: 1, background: 'var(--color-accent)' }} />
+                </div>
+                <div style={{ display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ flex: 1, background: 'var(--color-ink)' }} />
+                  <div style={{ flex: 1, background: 'var(--color-ink-2)' }} />
+                  <div style={{ flex: 1, background: 'var(--color-ink-3)' }} />
+                  <div style={{ flex: 1, background: 'var(--color-hairline)' }} />
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 56,
+                    borderRadius: 4,
+                    background: 'var(--color-accent-soft)',
+                    border: '1px solid var(--color-accent)',
+                  }}
+                >
+                  <span style={{ fontSize: 18, color: 'var(--color-accent)' }}>10%</span>
+                </div>
+              </div>
+            </AnatomyCell>
+
+            {/* SPACING — rhythm / proportion */}
+            <AnatomyCell label="space">
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                {[4, 8, 16, 32, 64].map((s) => (
+                  <div
+                    key={s}
+                    style={{
+                      width: s,
+                      height: s,
+                      background: 'var(--color-hairline)',
+                      borderRadius: 2,
+                    }}
+                  />
+                ))}
+              </div>
+            </AnatomyCell>
+
+            {/* ALIGNMENT — alignment / balance / white space */}
+            <AnatomyCell label="grid">
               <div
-                key={p.n}
                 style={{
-                  padding: 28,
-                  background: 'var(--color-bg-raised)',
+                  position: 'relative',
+                  height: 112,
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                  minHeight: 200,
+                  alignItems: 'center',
                 }}
               >
+                {/* The center column — one hairline */}
                 <div
-                  className="t-mono"
+                  aria-hidden
                   style={{
-                    color: i === 4 ? 'var(--color-accent)' : 'var(--color-ink-3)',
-                    textTransform: 'lowercase',
+                    position: 'absolute',
+                    left: '50%',
+                    top: 0,
+                    bottom: 0,
+                    width: 1,
+                    background: 'var(--color-hairline-strong)',
                   }}
-                >
-                  {p.n} / {p.title.toLowerCase()}
+                />
+                {/* The body column at 480px from the center */}
+                <div
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    left: 24,
+                    top: 0,
+                    bottom: 0,
+                    width: 1,
+                    background: 'var(--color-accent)',
+                    opacity: 0.4,
+                  }}
+                />
+                {/* Two stacked blocks of body text — visible left-alignment */}
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 180 }}>
+                  <div style={{ height: 6, width: 64, background: 'var(--color-ink-3)', borderRadius: 2 }} />
+                  <div style={{ height: 6, width: 140, background: 'var(--color-ink-3)', borderRadius: 2 }} />
+                  <div style={{ height: 6, width: 96, background: 'var(--color-ink-3)', borderRadius: 2 }} />
+                  <div style={{ height: 6, width: 120, background: 'var(--color-ink-3)', borderRadius: 2 }} />
                 </div>
-                <h3
-                  className="t-h2"
-                  style={{ margin: 0, fontSize: 20 }}
-                >
-                  {p.title}.
-                </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    color: 'var(--color-ink-2)',
-                  }}
-                >
-                  {p.body}
-                </p>
               </div>
-            ))}
+            </AnatomyCell>
           </div>
         </section>
 
@@ -373,14 +444,46 @@ export default function HomePage() {
 
       <style>{`
         @media (max-width: 1100px) {
-          .principles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .anatomy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .stack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .alignment-hairline { display: none; }
         }
         @media (max-width: 640px) {
-          .principles-grid { grid-template-columns: 1fr !important; }
+          .anatomy-grid { grid-template-columns: 1fr !important; }
           .stack-grid { grid-template-columns: 1fr !important; }
+          .alignment-hairline { display: none; }
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * One cell of the anatomy exhibit. Same padding, same surface, same
+ * micro-label as every other cell on the page — that's the unity.
+ */
+function AnatomyCell({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        padding: 28,
+        background: 'var(--color-bg-raised)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+        minHeight: 200,
+      }}
+    >
+      <div
+        className="t-mono"
+        style={{
+          color: 'var(--color-ink-3)',
+          textTransform: 'lowercase',
+        }}
+      >
+        fig. {label}
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{children}</div>
     </div>
   );
 }

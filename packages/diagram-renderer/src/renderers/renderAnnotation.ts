@@ -16,7 +16,7 @@ export function renderAnnotationSvg(annotation: DiagramAnnotation, theme: Theme)
       return `
       <g id="annotation-${annotation.id}" class="diagram-annotation anno-step">
         <circle cx="${x + 14}" cy="${y + 14}" r="14" fill="${theme.annotations.stepCircleBackground}" />
-        <text x="${x + 14}" y="${y + 19}" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="13" font-weight="700" fill="${theme.annotations.stepCircleText}" text-anchor="middle">${annotation.stepNumber}</text>
+        <text x="${x + 14}" y="${y + 19}" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="13" font-weight="700" fill="${theme.annotations.stepCircleText}" text-anchor="middle">${escapeXml(String(annotation.stepNumber ?? ''))}</text>
         <text x="${x + 36}" y="${y + 10}" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="13" font-weight="600" fill="${theme.annotations.stepTitleText}">${title}</text>
         ${descSvg}
       </g>
@@ -59,7 +59,10 @@ export function renderAnnotationSvg(annotation: DiagramAnnotation, theme: Theme)
     case 'highlight': {
       const { x, y } = annotation.position;
       const { width, height } = annotation.size;
-      const color = annotation.color ?? 'rgba(59, 130, 246, 0.15)';
+      // Colors are constrained to CSS color forms (hex / rgb() / rgba() /
+      // hsl()) so their character set is safe in an XML attribute, but we
+      // run them through escapeXml to defend against bad user data.
+      const color = escapeXml(annotation.color ?? 'rgba(59, 130, 246, 0.15)');
 
       return `
       <g id="annotation-${annotation.id}" class="diagram-annotation anno-highlight">

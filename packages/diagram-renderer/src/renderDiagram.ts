@@ -5,6 +5,7 @@ import { renderNodeSvg } from './renderers/renderNode';
 import { renderEdgeSvg } from './renderers/renderEdge';
 import { renderGroupSvg } from './renderers/renderGroup';
 import { renderAnnotationSvg } from './renderers/renderAnnotation';
+import { escapeXml } from './utils/sanitize';
 
 export type RenderOptions = {
   theme?: string;
@@ -45,7 +46,7 @@ export function renderDiagram(doc: DiagramDocument, options: RenderOptions = {})
   `.trim();
 
   const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" data-schema-version="${doc.schemaVersion}" data-renderer-version="1.0.0" data-theme="${theme.id}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" data-schema-version="${escapeXml(doc.schemaVersion)}" data-renderer-version="1.0.0" data-theme="${escapeXml(theme.id)}">
   ${defs}
   <g id="layer-background">
     ${bgResult.svg}

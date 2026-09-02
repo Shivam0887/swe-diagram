@@ -52,7 +52,10 @@ export function renderEdgeSvg(
     if (animationType === 'dash_flow') {
       // Marching-ants effect: animate stroke-dashoffset on the main path.
       // We override the user's static dasharray for the animated copy only.
-      dashFlowStrokeAttrs = `stroke-dasharray="6 4" stroke-dashoffset="0" style="animation: dash-flow-${escapeXml(id)} ${speedSec} linear infinite"`;
+      // The closing quote on the style attribute is required — it was missing
+      // in earlier versions and produced an unterminated-attribute parse error
+      // ("Entity 'AMP' not defined" when followed by other attributes).
+      dashFlowStrokeAttrs = `stroke-dasharray="6 4" stroke-dashoffset="0" style="animation: dash-flow-${escapeXml(id)} ${speedSec} linear infinite;"`;
       animationOverlay = `
         <style>
           @keyframes dash-flow-${escapeXml(id)} {
@@ -101,7 +104,7 @@ export function renderEdgeSvg(
         <g class="edge-label-group" transform="translate(${labelX}, ${labelY})">
           <g transform="translate(-22, 0)">
             <circle cx="0" cy="0" r="11" fill="${theme.annotations.stepCircleBackground}" />
-            <text x="0" y="3.5" text-anchor="middle" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="11" font-weight="700" fill="${theme.annotations.stepCircleText}">${data?.stepNumber}</text>
+            <text x="0" y="3.5" text-anchor="middle" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="11" font-weight="700" fill="${theme.annotations.stepCircleText}">${escapeXml(String(data?.stepNumber ?? ''))}</text>
           </g>
           <g transform="translate(12, 0)">
             ${labelPill(data?.label ?? '', theme)}
@@ -112,7 +115,7 @@ export function renderEdgeSvg(
       labelSvg = `
         <g class="edge-label-group" transform="translate(${labelX}, ${labelY})">
           <circle cx="0" cy="0" r="11" fill="${theme.annotations.stepCircleBackground}" />
-          <text x="0" y="3.5" text-anchor="middle" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="11" font-weight="700" fill="${theme.annotations.stepCircleText}">${data?.stepNumber}</text>
+          <text x="0" y="3.5" text-anchor="middle" font-family="${escapeXml(theme.typography.fontFamily)}" font-size="11" font-weight="700" fill="${theme.annotations.stepCircleText}">${escapeXml(String(data?.stepNumber ?? ''))}</text>
         </g>
       `;
     } else if (hasLabel) {
