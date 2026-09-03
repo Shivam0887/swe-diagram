@@ -128,6 +128,14 @@ export function renderEdgeSvg(
   }
 
   // Soft underlay for readability on busy diagrams.
+  //
+  // When dash-flow animation is active, `dashFlowStrokeAttrs` already
+  // carries a `stroke-dasharray="6 4"` declaration. Emitting a second
+  // `stroke-dasharray=` (even an empty one) on the same path produces
+  // "Attribute stroke-dasharray redefined" when the browser parses the
+  // SVG. So we render the static-dasharray attribute ONLY when dash-flow
+  // is not in play — when it is, dashFlowStrokeAttrs owns that slot.
+  const dashArrayAttr = dashFlowStrokeAttrs ? '' : ` stroke-dasharray="${strokeDasharray}"`;
   return `
     <g id="edge-${escapeXml(id)}" class="diagram-edge">
       <path
@@ -142,12 +150,10 @@ export function renderEdgeSvg(
         d="${pathD}"
         fill="none"
         stroke="${strokeColor}"
-        stroke-width="${strokeWidth}"
-        stroke-dasharray="${dashFlowStrokeAttrs ? '' : strokeDasharray}"
+        stroke-width="${strokeWidth}"${dashArrayAttr}
         stroke-linecap="round"
         stroke-linejoin="round"
-        marker-end="url(#marker-arrow-end)"
-        ${dashFlowStrokeAttrs}
+        marker-end="url(#marker-arrow-end)"${dashFlowStrokeAttrs ? ' ' + dashFlowStrokeAttrs : ''}
       />
       ${animationOverlay}
       ${labelSvg}

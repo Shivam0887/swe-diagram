@@ -56,10 +56,15 @@ export const ComponentPalette: React.FC<ComponentPaletteProps> = ({
   const [query, setQuery] = useState('');
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType, shape?: NodeShape) => {
-    event.dataTransfer.setData(
-      'application/diagram-node',
-      JSON.stringify({ type: nodeType, shape })
-    );
+    const payload = JSON.stringify({ type: nodeType, shape });
+    // Set BOTH a custom MIME and a text/plain fallback. Chromium and
+    // Firefox can refuse the drop if `dataTransfer.setData` was only
+    // called with a custom (non-standard) type, and `text/plain` is the
+    // universal fallback. The editor's `onDrop` reads the custom MIME
+    // first; if the browser stripped it, the drop still resolves to a
+    // payload.
+    event.dataTransfer.setData('application/diagram-node', payload);
+    event.dataTransfer.setData('text/plain', payload);
     event.dataTransfer.effectAllowed = 'copy';
   };
 

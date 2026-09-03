@@ -265,11 +265,28 @@ function EditorCanvasContent() {
       ) {
         e.preventDefault();
         handleRedo();
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        // Plain Delete/Backspace: remove whichever selection the user
+        // currently has (node wins over edge wins over group). React Flow
+        // already routes Backspace through `onNodesChange` / `onEdgesChange`
+        // when its own canvas has focus; this handler is the safety net
+        // for when focus is on the toolbar or elsewhere.
+        e.preventDefault();
+        if (selectedNodeId) {
+          const existing = doc.nodes.find((n) => n.id === selectedNodeId);
+          if (existing) executeCommand(new DeleteNodeCommand(selectedNodeId));
+        } else if (selectedGroupId) {
+          const existing = (doc.groups ?? []).find((g) => g.id === selectedGroupId);
+          if (existing) executeCommand(new DeleteGroupCommand(selectedGroupId));
+        } else if (selectedEdgeId) {
+          const existing = doc.edges.find((ed) => ed.id === selectedEdgeId);
+          if (existing) executeCommand(new DeleteEdgeCommand(selectedEdgeId));
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, executeCommand, selectedNodeId, selectedEdgeId, selectedGroupId, doc.nodes, doc.edges, doc.groups]);
 
   const flowNodes: Node[] = useMemo(
     () => {
@@ -564,25 +581,47 @@ function EditorCanvasContent() {
   );
 
   const onDragOver = useCallback((e: React.DragEvent) => {
+    // The palette announces `effectAllowed = 'copy'`; mirror it here so
+    // the cursor shows a "+" instead of the forbidden-circle, and so the
+    // browser actually delivers the drop event.
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = 'copy';
   }, []);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const raw = event.dataTransfer.getData('application/diagram-node');
+      // Try the custom MIME first; fall back to text/plain (browsers
+      // occasionally strip custom MIME types on certain platforms).
+      const raw =
+        event.dataTransfer.getData('application/diagram-node') ||
+        event.dataTransfer.getData('text/plain');
       if (!raw) return;
-      const { type, shape } = JSON.parse(raw) as { type: NodeType; shape?: NodeShape };
-      if (!type) return;
-      const pos = reactFlowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      handleAddNode(type, shape, undefined, undefined);
+      let parsed: { type: NodeType; shape?: NodeShape };
+      try {
+        parsed = JSON.parse(raw) as { type: NodeType; shape?: NodeShape };
+      } catch {
+        return;
+      }
+      if (!parsed?.type) return;
+      const pos = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      handleAddNode(parsed.type, parsed.shape, undefined, undefined);
       // Snap the most recent node to the drop position
       setTimeout(() => {
         setDoc((currentDoc) => {
           const last = currentDoc.nodes[currentDoc.nodes.length - 1];
           if (!last) return currentDoc;
-          return { ...currentDoc, nodes: currentDoc.nodes.map((n) => (n.id === last.id ? { ...n, position: { x: Math.round(pos.x), y: Math.round(pos.y) } } : n)) };
+          return {
+            ...currentDoc,
+            nodes: currentDoc.nodes.map((n) =>
+              n.id === last.id
+                ? { ...n, position: { x: Math.round(pos.x), y: Math.round(pos.y) } }
+                : n
+            ),
+          };
         });
       }, 0);
     },
@@ -667,6 +706,39 @@ function EditorCanvasContent() {
       executeCommand(new UpdateGroupCommand(groupId, updates, existing));
     },
     [doc.groups, executeCommand]
+  );
+
+  /**
+   * Hard-delete the currently selected node/edge/group. Wired to the
+   * trash button in the PropertiesPanel — pressing the keyboard's
+   * Backspace or Delete key still goes through React Flow's `onNodesChange`
+   * / `onEdgesChange` channels (which dispatch the same commands).
+   * After deletion we also clear the local selection ids so the panel
+   * snaps back to its empty state instead of holding a stale id.
+   */
+  const handleDeleteSelected = useCallback(
+    (kind: 'node' | 'edge' | 'group') => {
+      if (kind === 'node' && selectedNodeId) {
+        const existing = doc.nodes.find((n) => n.id === selectedNodeId);
+        if (existing) {
+          executeCommand(new DeleteNodeCommand(selectedNodeId));
+          setSelectedNodeId(null);
+        }
+      } else if (kind === 'edge' && selectedEdgeId) {
+        const existing = doc.edges.find((e) => e.id === selectedEdgeId);
+        if (existing) {
+          executeCommand(new DeleteEdgeCommand(selectedEdgeId));
+          setSelectedEdgeId(null);
+        }
+      } else if (kind === 'group' && selectedGroupId) {
+        const existing = (doc.groups ?? []).find((g) => g.id === selectedGroupId);
+        if (existing) {
+          executeCommand(new DeleteGroupCommand(selectedGroupId));
+          setSelectedGroupId(null);
+        }
+      }
+    },
+    [doc.nodes, doc.edges, doc.groups, executeCommand, selectedNodeId, selectedEdgeId, selectedGroupId]
   );
 
   const handleAutoLayout = useCallback(async () => {
@@ -864,7 +936,12 @@ function EditorCanvasContent() {
           />
         )}
 
-        <div ref={reactFlowWrapper} style={{ flex: 1, position: 'relative', background: 'var(--color-bg)' }}>
+        <div
+          ref={reactFlowWrapper}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          style={{ flex: 1, position: 'relative', background: 'var(--color-bg)' }}
+        >
           <ReactFlow
             nodes={flowNodes}
             edges={flowEdges}
@@ -873,8 +950,6 @@ function EditorCanvasContent() {
             onConnect={onConnect}
             onNodeDragStop={onNodeDragStop}
             onPaneClick={onPaneClick}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
@@ -910,6 +985,7 @@ function EditorCanvasContent() {
               onUpdateNode={handleUpdateNode}
               onUpdateEdge={handleUpdateEdge}
               onUpdateGroup={handleUpdateGroup}
+              onDelete={handleDeleteSelected}
             />
           ))}
       </div>

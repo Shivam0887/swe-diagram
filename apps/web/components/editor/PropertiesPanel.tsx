@@ -10,6 +10,7 @@ import {
   Hash,
   Check,
   ChevronDown,
+  Trash2,
 } from 'lucide-react';
 import { Chip, Select, ListBox } from '@heroui/react';
 import type {
@@ -68,6 +69,12 @@ interface PropertiesPanelProps {
   onUpdateNode: (id: string, updates: Partial<DiagramNode>) => void;
   onUpdateEdge: (id: string, updates: Partial<DiagramEdge>) => void;
   onUpdateGroup?: (id: string, updates: Partial<DiagramGroup>) => void;
+  /**
+   * Hard-delete the currently-selected element. Wired to the trash button
+   * in the panel header — pressing Backspace/Delete on the keyboard
+   * is also handled at the page level.
+   */
+  onDelete?: (kind: 'node' | 'edge' | 'group') => void;
 }
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -77,6 +84,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onUpdateNode,
   onUpdateEdge,
   onUpdateGroup,
+  onDelete,
 }) => {
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
 
@@ -112,12 +120,25 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         node={selectedNode}
         onUpdate={onUpdateNode}
         onOpenIcon={() => setIsIconModalOpen(true)}
+        onDelete={onDelete ? () => onDelete('node') : undefined}
       />
     );
   } else if (selectedEdge) {
-    body = <EdgeProperties edge={selectedEdge} onUpdate={onUpdateEdge} />;
+    body = (
+      <EdgeProperties
+        edge={selectedEdge}
+        onUpdate={onUpdateEdge}
+        onDelete={onDelete ? () => onDelete('edge') : undefined}
+      />
+    );
   } else if (selectedGroup && onUpdateGroup) {
-    body = <GroupProperties group={selectedGroup} onUpdate={onUpdateGroup} />;
+    body = (
+      <GroupProperties
+        group={selectedGroup}
+        onUpdate={onUpdateGroup}
+        onDelete={onDelete ? () => onDelete('group') : undefined}
+      />
+    );
   }
 
   return (
@@ -141,10 +162,12 @@ function NodeProperties({
   node,
   onUpdate,
   onOpenIcon,
+  onDelete,
 }: {
   node: DiagramNode;
   onUpdate: (id: string, updates: Partial<DiagramNode>) => void;
   onOpenIcon: () => void;
+  onDelete?: () => void;
 }) {
   const currentShape: NodeShape = node.shape ?? 'rounded_card';
   const style = node.style ?? {};
@@ -162,7 +185,7 @@ function NodeProperties({
         flexDirection: 'column',
       }}
     >
-      <SectionTitle title="Node" tag={node.type} />
+      <SectionTitle title="Node" tag={node.type} onDelete={onDelete} />
 
       <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <BareField label="Shape" icon={<Layers size={11} />}>
@@ -343,9 +366,11 @@ function NodeProperties({
 function EdgeProperties({
   edge,
   onUpdate,
+  onDelete,
 }: {
   edge: DiagramEdge;
   onUpdate: (id: string, updates: Partial<DiagramEdge>) => void;
+  onDelete?: () => void;
 }) {
   const data = edge.data ?? {};
   const routing: EdgeRouting = edge.routing ?? 'orthogonal';
@@ -363,7 +388,7 @@ function EdgeProperties({
         flexDirection: 'column',
       }}
     >
-      <SectionTitle title="Edge" tag={edge.id.slice(0, 16)} />
+      <SectionTitle title="Edge" tag={edge.id.slice(0, 16)} onDelete={onDelete} />
 
       <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div
@@ -497,7 +522,7 @@ function EdgeProperties({
   );
 }
 
-function SectionTitle({ title, tag }: { title: string; tag: string }) {
+function SectionTitle({ title, tag, onDelete }: { title: string; tag: string; onDelete?: () => void }) {
   return (
     <div
       style={{
@@ -506,6 +531,7 @@ function SectionTitle({ title, tag }: { title: string; tag: string }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 8,
       }}
     >
       <h3
@@ -514,26 +540,64 @@ function SectionTitle({ title, tag }: { title: string; tag: string }) {
           fontSize: 14,
           fontWeight: 500,
           color: 'var(--color-ink)',
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         }}
       >
         {title}
       </h3>
-      <Chip
-        size="sm"
-        variant="soft"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          height: 18,
-          padding: '0 6px',
-          background: 'transparent',
-          color: 'var(--color-ink-3)',
-          border: '1px solid var(--color-hairline)',
-          borderRadius: 4,
-        }}
-      >
-        {tag}
-      </Chip>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Chip
+          size="sm"
+          variant="soft"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            height: 18,
+            padding: '0 6px',
+            background: 'transparent',
+            color: 'var(--color-ink-3)',
+            border: '1px solid var(--color-hairline)',
+            borderRadius: 4,
+          }}
+        >
+          {tag}
+        </Chip>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            title="Delete (Del)"
+            aria-label="Delete"
+            style={{
+              width: 26,
+              height: 26,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 6,
+              color: 'var(--color-ink-3)',
+              cursor: 'pointer',
+              padding: 0,
+              transition: 'color 150ms ease, border-color 150ms ease, background-color 150ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--color-accent)';
+              e.currentTarget.style.borderColor = 'var(--color-accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--color-ink-3)';
+              e.currentTarget.style.borderColor = 'var(--color-hairline)';
+            }}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -804,9 +868,11 @@ const GROUP_COLOR_ROLE_OPTIONS: { id: string; label: string }[] = [
 function GroupProperties({
   group,
   onUpdate,
+  onDelete,
 }: {
   group: DiagramGroup;
   onUpdate: (id: string, updates: Partial<DiagramGroup>) => void;
+  onDelete?: () => void;
 }) {
   return (
     <aside
@@ -820,7 +886,7 @@ function GroupProperties({
         flexDirection: 'column',
       }}
     >
-      <SectionTitle title="Group" tag={group.id.slice(0, 16)} />
+      <SectionTitle title="Group" tag={group.id.slice(0, 16)} onDelete={onDelete} />
 
       <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <BareField label="Title">
