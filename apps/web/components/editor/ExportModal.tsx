@@ -56,6 +56,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               format: 'png',
               scale,
               theme: doc.theme,
+              transparentBackground: transparent,
             }),
           });
           if (!res.ok) throw new Error(`server returned ${res.status}`);
@@ -76,8 +77,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
       const { svg } = renderDiagram(doc, {
         theme: doc.theme || 'polished-dark',
-        width: doc.metadata?.width || 1200,
-        height: doc.metadata?.height || 800,
+        transparentBackground: transparent,
       });
 
       if (selectedFormat === 'svg') {
@@ -100,10 +100,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const exportPngClient = async (): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
-      const { svg } = renderDiagram(doc, {
+      const { svg, width: svgW, height: svgH } = renderDiagram(doc, {
         theme: doc.theme || 'polished-dark',
-        width: doc.metadata?.width || 1200,
-        height: doc.metadata?.height || 800,
+        transparentBackground: transparent,
       });
       const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -111,8 +110,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       img.onload = () => {
         try {
           const canvas = window.document.createElement('canvas');
-          canvas.width = (img.width || 1200) * scale;
-          canvas.height = (img.height || 800) * scale;
+          canvas.width = (img.width || svgW) * scale;
+          canvas.height = (img.height || svgH) * scale;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             URL.revokeObjectURL(url);
@@ -120,10 +119,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             return;
           }
           ctx.scale(scale, scale);
-          if (!transparent) {
-            ctx.fillStyle = doc.theme?.includes('dark') ? '#0A0A0F' : '#FAFAFA';
-            ctx.fillRect(0, 0, img.width || 1200, img.height || 800);
-          }
+          // The SVG already carries its own background when the user
+          // has the transparent toggle off (the renderer paints the
+          // grid/solid bg into layer-background), and has no background
+          // when the toggle is on. Either way, the canvas just
+          // composites the image — no fillRect needed.
           ctx.drawImage(img, 0, 0);
           canvas.toBlob((pngBlob) => {
             URL.revokeObjectURL(url);

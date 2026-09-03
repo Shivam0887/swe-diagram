@@ -11,6 +11,13 @@ const ExportRequestSchema = z.object({
   format: z.enum(['svg', 'png']).default('svg'),
   scale: z.number().min(1).max(4).default(2),
   theme: z.string().optional(),
+  /**
+   * Drop the background layer in both SVG and PNG output. Default is
+   * false so existing clients keep their opaque backdrop; the editor
+   * modal flips this to true when the user toggles "transparent
+   * background" in the export sheet.
+   */
+  transparentBackground: z.boolean().optional().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,7 +26,10 @@ export async function POST(req: NextRequest) {
     const validated = ExportRequestSchema.parse(body);
 
     if (validated.format === 'svg') {
-      const svg = exportService.svg(validated.document as any, { theme: validated.theme });
+      const svg = exportService.svg(validated.document as any, {
+        theme: validated.theme,
+        transparentBackground: validated.transparentBackground,
+      });
       return new NextResponse(svg, {
         headers: {
           'Content-Type': 'image/svg+xml; charset=utf-8',
@@ -31,6 +41,7 @@ export async function POST(req: NextRequest) {
     const pngBuffer = await exportService.png(validated.document as any, {
       scale: validated.scale,
       theme: validated.theme,
+      transparentBackground: validated.transparentBackground,
     });
 
     return new NextResponse(new Uint8Array(pngBuffer), {

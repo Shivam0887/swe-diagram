@@ -11,6 +11,14 @@ export type PngExportOptions = RenderOptions & {
  * IMPORTANT: if the native sharp binary is unavailable, this throws rather
  * than silently returning SVG bytes. Returning SVG with PNG Content-Type
  * would render broken images for the user.
+ *
+ * Transparency: when `options.transparentBackground` is true the SVG
+ * is rendered without a background rect. Sharp rasterizes the SVG
+ * with the natural alpha channel of the root — no extra `flatten` or
+ * background composite is applied — so the output PNG has an alpha
+ * channel. Callers that want a fully-opaque PNG can leave the flag
+ * off (default) and the renderer's grid background will fill the
+ * canvas as before.
  */
 export async function exportToPngBuffer(
   doc: DiagramDocument,
