@@ -1,4 +1,4 @@
-import type { DiagramDocument } from '@platform/diagram-schema';
+import type { CanvasBackground, DiagramDocument } from '@platform/diagram-schema';
 import { resolveTheme } from '@platform/design-system';
 import { renderBackground } from './renderers/renderBackground';
 import { renderNodeSvg } from './renderers/renderNode';
@@ -7,6 +7,24 @@ import { renderGroupSvg } from './renderers/renderGroup';
 import { renderAnnotationSvg } from './renderers/renderAnnotation';
 import { computeContentBounds } from './bounds';
 import { escapeXml } from './utils/sanitize';
+
+/**
+ * Per-export background override. The export modal and the API let
+ * users pick one of these:
+ *
+ *   - `'theme'` (default): use `doc.metadata.background` as configured
+ *     on the document. The renderer falls back to the theme's default
+ *     grid pattern when the metadata has no background.
+ *   - `'none'`: skip the background layer entirely. The SVG inherits
+ *     its host's backdrop and a rasterized PNG keeps the alpha
+ *     channel.
+ *   - A `CanvasBackground` object: render exactly this background
+ *     (`grid` | `dots` | `solid`) with the supplied options, ignoring
+ *     `doc.metadata.background`. This is the per-export override that
+ *     lets users choose, e.g., a transparent doc into a solid-white
+ *     PNG without editing the document.
+ */
+export type BackgroundOption = 'theme' | 'none' | CanvasBackground;
 
 export type RenderOptions = {
   theme?: string;
@@ -19,9 +37,15 @@ export type RenderOptions = {
   width?: number;
   height?: number;
   /**
-   * When true, no background rect is painted. The resulting SVG has
-   * no fill underneath the diagram, and a rasterized PNG keeps the
-   * alpha channel. Default: false (paint the configured bg).
+   * Per-export background override. See `BackgroundOption` for the
+   * accepted shapes. Default behavior: use the document's
+   * `metadata.background` (falling back to the theme's default grid).
+   */
+  background?: BackgroundOption;
+  /**
+   * Backwards-compatible alias for `background: 'none'`. Prefer the
+   * `background` field for new code; this remains so existing callers
+   * keep working.
    */
   transparentBackground?: boolean;
 };
@@ -79,14 +103,18 @@ export function renderDiagram(doc: DiagramDocument, options: RenderOptions = {})
     }
   }
 
-  // Background layer. When `transparentBackground` is true we skip
-  // the rect entirely; the SVG inherits its host's backdrop. The
-  // layer is still emitted (empty) so the layer ordering — bg →
-  // groups → edges → nodes → annotations — stays consistent across
-  // all exports and the schema is uniform.
-  const bgResult = options.transparentBackground
-    ? { defs: '', svg: '' }
-    : renderBackground(doc.metadata.background, width, height, theme);
+  // Resolve the background. `transparentBackground: true` is the
+  // legacy alias for `background: 'none'`; both produce an empty
+  // bg layer (the layer element is still emitted so the layer order
+  // is consistent across all exports).
+  const resolvedBackground: CanvasBackground | undefined = (() => {
+    if (options.background === 'none' || options.transparentBackground) return undefined;
+    if (options.background && options.background !== 'theme') return options.background;
+    return doc.metadata.background;
+  })();
+  const bgResult = resolvedBackground
+    ? renderBackground(resolvedBackground, width, height, theme)
+    : { defs: '', svg: '' };
 
   const groupsSvg = (doc.groups ?? []).map((g) => renderGroupSvg(g, theme)).join('\n    ');
   const edgesSvg = (doc.edges ?? []).map((e) => renderEdgeSvg(e, nodeMap, theme)).join('\n    ');

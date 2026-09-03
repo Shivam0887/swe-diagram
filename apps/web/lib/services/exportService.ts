@@ -1,15 +1,23 @@
 import type { DiagramDocument } from '@platform/diagram-schema';
 import { exportToSvg, exportToPngBuffer, type PngExportOptions } from '@platform/export';
+import type { BackgroundOption } from '@platform/diagram-renderer';
 
 /**
- * Common options shared by both export paths. The `transparentBackground`
- * flag drops the grid/solid background and lets the host backdrop
- * (browser, slide deck, design tool) show through; the bbox is
- * auto-fit by default in `renderDiagram`, so callers don't have to
- * pass `width`/`height`.
+ * Common options shared by both export paths.
+ *
+ * - `background` overrides `doc.metadata.background` for this export.
+ *   Use `'none'` to render without a backdrop, `'theme'` to fall
+ *   through to the document default, or pass a `CanvasBackground`
+ *   object (grid/dots/solid) to override per-export — e.g. render a
+ *   transparent doc onto a solid-white PNG.
+ * - `transparentBackground` is the legacy alias for `background: 'none'`;
+ *   kept so existing callers keep working.
+ * - The bbox is auto-fit by default in `renderDiagram`, so callers
+ *   don't have to pass `width`/`height`.
  */
-type ExportOptions = {
+export type ExportOptions = {
   theme?: string;
+  background?: BackgroundOption;
   transparentBackground?: boolean;
 };
 

@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { DiagramDocumentSchema } from '@platform/diagram-schema';
+import { CanvasBackgroundSchema, DiagramDocumentSchema } from '@platform/diagram-schema';
 import { exportService } from '@/lib/services/exportService';
 import { handleApiError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Background override sent by the client. Accepts:
+ *   - `'none'` to suppress the bg layer (alpha PNG, no rect in SVG)
+ *   - `'theme'` to use the document's `metadata.background` as-is
+ *   - a full `CanvasBackground` object (`grid` / `dots` / `solid`)
+ *     to override per-export
+ *
+ * The `background` shape is the same `CanvasBackground` defined on
+ * `DiagramMetadata`; reusing the schema means new options added to
+ * the document model flow through to the export API automatically.
+ */
+const BackgroundOverrideSchema = z.union([
+  z.enum(['none', 'theme']),
+  CanvasBackgroundSchema,
+]);
 
 const ExportRequestSchema = z.object({
   document: DiagramDocumentSchema,
@@ -12,10 +28,16 @@ const ExportRequestSchema = z.object({
   scale: z.number().min(1).max(4).default(2),
   theme: z.string().optional(),
   /**
-   * Drop the background layer in both SVG and PNG output. Default is
-   * false so existing clients keep their opaque backdrop; the editor
-   * modal flips this to true when the user toggles "transparent
-   * background" in the export sheet.
+   * Per-export background override. Default is `'theme'`, meaning
+   * the export uses the document's `metadata.background`. Pass
+   * `'none'` for a transparent backdrop or a `CanvasBackground`
+   * object to override the visual.
+   */
+  background: BackgroundOverrideSchema.optional().default('theme'),
+  /**
+   * Drop the background layer in both SVG and PNG output. Legacy
+   * alias for `background: 'none'`; the editor modal sends `background`
+   * in the new code path but we keep this for any older clients.
    */
   transparentBackground: z.boolean().optional().default(false),
 });
@@ -28,6 +50,7 @@ export async function POST(req: NextRequest) {
     if (validated.format === 'svg') {
       const svg = exportService.svg(validated.document as any, {
         theme: validated.theme,
+        background: validated.background as any,
         transparentBackground: validated.transparentBackground,
       });
       return new NextResponse(svg, {
@@ -41,6 +64,7 @@ export async function POST(req: NextRequest) {
     const pngBuffer = await exportService.png(validated.document as any, {
       scale: validated.scale,
       theme: validated.theme,
+      background: validated.background as any,
       transparentBackground: validated.transparentBackground,
     });
 

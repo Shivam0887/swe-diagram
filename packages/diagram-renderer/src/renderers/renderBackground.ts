@@ -7,6 +7,13 @@ export function renderBackground(
   height: number,
   theme: Theme
 ): { defs: string; svg: string } {
+  // Use `100%` for the rect dimensions so the background always covers
+  // the full viewBox, even when the bbox-driven viewBox has a negative
+  // origin (e.g. content at x=-50 with auto-fit padding extends to
+  // x=-74). Hard-coded pixel dimensions leave the negative quadrant
+  // uncovered. The base fill rect is painted in addition to the
+  // pattern so the canvas shows the theme's background color behind
+  // the grid/dot strokes.
   if (!bg || bg.type === 'grid') {
     const gridBg = bg as { type: 'grid'; color?: string; gridColor?: string; gridSize?: number } | undefined;
     const bgColor = gridBg?.color ?? theme.canvas.background;
@@ -20,8 +27,8 @@ export function renderBackground(
     `.trim();
 
     const svg = `
-      <rect width="${width}" height="${height}" fill="${bgColor}" />
-      <rect width="${width}" height="${height}" fill="url(#pattern-grid)" />
+      <rect width="100%" height="100%" fill="${bgColor}" />
+      <rect width="100%" height="100%" fill="url(#pattern-grid)" />
     `.trim();
 
     return { defs, svg };
@@ -39,8 +46,8 @@ export function renderBackground(
     `.trim();
 
     const svg = `
-      <rect width="${width}" height="${height}" fill="${bgColor}" />
-      <rect width="${width}" height="${height}" fill="url(#pattern-dots)" />
+      <rect width="100%" height="100%" fill="${bgColor}" />
+      <rect width="100%" height="100%" fill="url(#pattern-dots)" />
     `.trim();
 
     return { defs, svg };
@@ -50,6 +57,6 @@ export function renderBackground(
   const bgColor = bg.color;
   return {
     defs: '',
-    svg: `<rect width="${width}" height="${height}" fill="${bgColor}" />`,
+    svg: `<rect width="100%" height="100%" fill="${bgColor}" />`,
   };
 }
