@@ -82,7 +82,11 @@ export function renderDiagram(
   const width = options?.width ?? doc.metadata.width;
   const height = options?.height ?? doc.metadata.height;
 
-  const bgSvg = renderBackground(doc.metadata.background, width, height, theme);
+  const bgSvg = renderBackground(
+    doc.metadata.background,
+    { viewBoxX, viewBoxY, width, height },
+    theme
+  );
   const groupsSvg = doc.groups.map((g) => renderGroupSvg(g, theme)).join('\n');
   const edgesSvg = doc.edges.map((e) => renderEdgeSvg(e, theme)).join('\n');
   const nodesSvg = doc.nodes.map((n) => renderNodeSvg(n, theme)).join('\n');

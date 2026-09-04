@@ -113,7 +113,7 @@ export function renderDiagram(doc: DiagramDocument, options: RenderOptions = {})
     return doc.metadata.background;
   })();
   const bgResult = resolvedBackground
-    ? renderBackground(resolvedBackground, width, height, theme)
+    ? renderBackground(resolvedBackground, { viewBoxX, viewBoxY, width, height }, theme)
     : { defs: '', svg: '' };
 
   const groupsSvg = (doc.groups ?? []).map((g) => renderGroupSvg(g, theme)).join('\n    ');
