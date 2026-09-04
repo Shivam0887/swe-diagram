@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@heroui/react';
 import {
@@ -11,7 +11,6 @@ import {
   Download,
   Save,
   Loader2,
-  Sparkles,
   ChevronDown,
   PanelLeft,
   PanelRight,
@@ -39,7 +38,6 @@ interface EditorToolbarProps {
    * longer surfaced in the UI.
    */
   onLoadTemplate?: (t: string) => void;
-  onOpenCopilot: () => void;
   isSaving: boolean;
   /** Show or hide the left component palette. */
   paletteOpen: boolean;
@@ -82,7 +80,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onAutoLayout,
   onSave,
   onOpenExport,
-  onOpenCopilot,
   isSaving,
   paletteOpen,
   onTogglePalette,
@@ -91,6 +88,53 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 }) => {
   const [themeOpen, setThemeOpen] = useState(false);
   const currentThemeName = ALL_THEMES.find((t) => t.id === currentTheme)?.name ?? currentTheme;
+
+  /**
+   * The title input is buffered locally so the user's typing is
+   * never blocked by a parent re-render. The history manager
+   * creates a new undo step on every doc mutation, and pushing one
+   * of those for every keystroke makes the input's `value` prop
+   * change between renders — which causes React to reset the
+   * selection to the end of the field, making it impossible to edit
+   * a name in the middle.
+   *
+   * The local state is the source of truth while the input has
+   * focus; the `title` prop is only read for the initial value
+   * (and when it changes while the input is not focused, e.g. an
+   * undo). We debounce the commit so the history stack gets one
+   * entry per typing burst rather than one per keystroke.
+   */
+  const [localTitle, setLocalTitle] = useState<string>(title || 'Untitled Diagram');
+  const isFocusedRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync external title changes (e.g. undo) into the local buffer
+  // — but only when the user is not actively editing, otherwise
+  // we'd stomp on their typing.
+  useEffect(() => {
+    if (isFocusedRef.current) return;
+    const next = title || 'Untitled Diagram';
+    setLocalTitle((prev) => (prev === next ? prev : next));
+  }, [title]);
+
+  // Clean up any pending debounce on unmount so a late commit
+  // doesn't try to call into a stale prop.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const commitTitle = (next: string) => {
+    if (!onTitleChange) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // 300 ms is the sweet spot — short enough that the title
+    // visually updates with typing, long enough that rapid
+    // keystrokes coalesce into a single undo step.
+    debounceRef.current = setTimeout(() => {
+      if (next !== title) onTitleChange(next);
+    }, 300);
+  };
 
   return (
     <div
@@ -124,8 +168,26 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         {onTitleChange ? (
           <input
             type="text"
-            value={title || 'Untitled Diagram'}
-            onChange={(e) => onTitleChange(e.target.value)}
+            value={localTitle}
+            onFocus={(e) => {
+              isFocusedRef.current = true;
+              e.currentTarget.style.borderBottomColor = 'var(--color-accent)';
+            }}
+            onBlur={(e) => {
+              isFocusedRef.current = false;
+              e.currentTarget.style.borderBottomColor = 'transparent';
+              // Flush any pending debounce immediately on blur so
+              // the user's last edit isn't lost when they tab away.
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              if (onTitleChange && localTitle !== (title || 'Untitled Diagram')) {
+                onTitleChange(localTitle);
+              }
+            }}
+            onChange={(e) => {
+              const next = e.target.value;
+              setLocalTitle(next);
+              commitTitle(next);
+            }}
             spellCheck={false}
             style={{
               fontFamily: 'var(--font-sans)',
@@ -140,8 +202,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
               width: 280,
               transition: 'border-color 150ms ease',
             }}
-            onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--color-accent)')}
-            onBlur={(e) => (e.currentTarget.style.borderBottomColor = 'transparent')}
           />
         ) : (
           <h1
@@ -305,18 +365,6 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
         {/* Template selector removed when the gallery was deleted.
             Users now start from a blank canonical document and save their
             work to a real project. */}
-
-        <span title="AI co-pilot" style={{ display: 'inline-flex' }}>
-          <Button
-            onPress={onOpenCopilot}
-            variant="ghost"
-            size="sm"
-            style={toolbarBtnStyle}
-            aria-label="AI co-pilot"
-          >
-            <Sparkles size={14} /> co-pilot
-          </Button>
-        </span>
 
         <span
           aria-hidden

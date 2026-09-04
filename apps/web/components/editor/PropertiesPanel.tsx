@@ -341,6 +341,16 @@ function NodeProperties({
             value={style.borderColor || '#E8E2D5'}
             onChange={(v) => onUpdate(node.id, { style: { ...style, borderColor: v } })}
           />
+          <ColorRow
+            label="icon"
+            value={style.iconColor || '#E8E2D5'}
+            onChange={(v) => onUpdate(node.id, { style: { ...style, iconColor: v } })}
+          />
+          <ColorRow
+            label="text"
+            value={style.textColor || '#E8E2D5'}
+            onChange={(v) => onUpdate(node.id, { style: { ...style, textColor: v } })}
+          />
         </BareField>
 
         <Divider />

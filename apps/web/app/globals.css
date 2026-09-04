@@ -342,6 +342,47 @@ body {
   * { transition-duration: 0ms !important; }
 }
 
+/* --- Blueprint palette (api-docs + edge label chrome) ----------------- */
+/* These are aliases of the editorial dark tokens. They predate the 60-30-10
+   rename — old code calls them `--bp-bg-0/1/2` and `--bp-ink-0/1/2` and the
+   api-docs page and the four edge label components still use them. Map them
+   to the live tokens here so a palette tweak in one place propagates. */
+
+:root {
+  --bp-bg-0: var(--color-bg);
+  --bp-bg-1: var(--color-bg-raised);
+  --bp-bg-2: var(--color-bg-sunken);
+  --bp-ink-0: var(--color-ink);
+  --bp-ink-1: var(--color-ink-2);
+  --bp-ink-2: var(--color-ink-3);
+  --bp-accent: var(--color-accent);
+  --bp-accent-soft: var(--color-accent-soft);
+  --bp-hairline: var(--color-hairline);
+}
+
+.bp-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--color-ink-2);
+}
+.bp-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  border-radius: 6px;
+  color: var(--color-ink-2);
+  cursor: pointer;
+  padding: 0;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.bp-btn-icon:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
 /* --- Cursor glow (landing + gallery only) ----------------------------- */
 
 .cursor-glow {

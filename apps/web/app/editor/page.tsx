@@ -72,7 +72,6 @@ import { ComponentPalette } from '../../components/editor/ComponentPalette';
 import { PropertiesPanel } from '../../components/editor/PropertiesPanel';
 import { EditorToolbar } from '../../components/editor/EditorToolbar';
 import { ExportModal } from '../../components/editor/ExportModal';
-import { AiCopilotPanel } from '../../components/editor/AiCopilotPanel';
 
 const nodeTypes = {
   customDiagramNode: CustomDiagramNode,
@@ -232,7 +231,6 @@ function EditorCanvasContent() {
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [copilotOpen, setCopilotOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
 
@@ -914,7 +912,6 @@ function EditorCanvasContent() {
         onSave={handleSave}
         onOpenExport={() => setIsExportOpen(true)}
         onLoadTemplate={handleLoadTemplate}
-        onOpenCopilot={() => setCopilotOpen((v) => !v)}
         isSaving={isSaving}
         paletteOpen={paletteOpen}
         onTogglePalette={() => setPaletteOpen((v) => !v)}
@@ -969,25 +966,17 @@ function EditorCanvasContent() {
           </ReactFlow>
         </div>
 
-        {propertiesOpen &&
-          (copilotOpen ? (
-            <AiCopilotPanel
-              doc={doc}
-              isOpen={copilotOpen}
-              onClose={() => setCopilotOpen(false)}
-              onApplyCommand={executeCommand}
-            />
-          ) : (
-            <PropertiesPanel
-              selectedNode={selectedNode}
-              selectedEdge={selectedEdge}
-              selectedGroup={selectedGroup}
-              onUpdateNode={handleUpdateNode}
-              onUpdateEdge={handleUpdateEdge}
-              onUpdateGroup={handleUpdateGroup}
-              onDelete={handleDeleteSelected}
-            />
-          ))}
+        {propertiesOpen && (
+          <PropertiesPanel
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            selectedGroup={selectedGroup}
+            onUpdateNode={handleUpdateNode}
+            onUpdateEdge={handleUpdateEdge}
+            onUpdateGroup={handleUpdateGroup}
+            onDelete={handleDeleteSelected}
+          />
+        )}
       </div>
 
       <ExportModal
@@ -1019,7 +1008,6 @@ function ToolbarWithHistory({
   onSave,
   onOpenExport,
   onLoadTemplate,
-  onOpenCopilot,
   isSaving,
   paletteOpen,
   onTogglePalette,
@@ -1037,7 +1025,6 @@ function ToolbarWithHistory({
   onSave: () => void;
   onOpenExport: () => void;
   onLoadTemplate: (t: string) => void;
-  onOpenCopilot: () => void;
   isSaving: boolean;
   paletteOpen: boolean;
   onTogglePalette: () => void;
@@ -1070,7 +1057,6 @@ function ToolbarWithHistory({
       onSave={onSave}
       onOpenExport={onOpenExport}
       onLoadTemplate={onLoadTemplate}
-      onOpenCopilot={onOpenCopilot}
       isSaving={isSaving}
       paletteOpen={paletteOpen}
       onTogglePalette={onTogglePalette}
