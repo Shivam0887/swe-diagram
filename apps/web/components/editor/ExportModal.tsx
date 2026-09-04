@@ -15,10 +15,11 @@ import {
   Ban,
   Sparkles,
   Palette,
+  Maximize2,
 } from 'lucide-react';
 import { Button, Spinner } from '@heroui/react';
 import type { CanvasBackground, DiagramDocument } from '@platform/diagram-schema';
-import { renderDiagram, type BackgroundOption } from '@platform/diagram-renderer';
+import { renderDiagram, type BackgroundOption, type PageSize } from '@platform/diagram-renderer';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -41,6 +42,20 @@ const BG_MODES: { id: BgMode; label: string; description: string; icon: React.Co
   { id: 'solid', label: 'solid',  description: 'single flat color',                        icon: Square },
 ];
 
+/**
+ * Page-size presets. `'auto'` is the prior "fit to bbox" behavior.
+ * The numbered presets are common export targets — slide decks,
+ * social cards, square thumbnails — that need a known canvas size
+ * with the diagram centered on the chosen background.
+ */
+const PAGE_SIZE_OPTIONS: { value: PageSize; label: string }[] = [
+  { value: 'auto',                                                   label: 'auto · fit to diagram' },
+  { value: { width: 1920, height: 1080, label: '1920×1080' },        label: '1920×1080 · 16:9 slide' },
+  { value: { width: 1280, height: 720,  label: '1280×720' },         label: '1280×720 · 16:9 HD' },
+  { value: { width: 1200, height: 628,  label: '1200×628' },         label: '1200×628 · social card' },
+  { value: { width: 1080, height: 1080, label: '1080×1080' },        label: '1080×1080 · square' },
+];
+
 export const ExportModal: React.FC<ExportModalProps> = ({
   isOpen,
   onClose,
@@ -51,6 +66,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [scale, setScale] = useState<number>(2);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Page-size picker. `'auto'` is the prior "fit to bbox" behavior;
+  // the other presets pin the canvas to a known size and center the
+  // diagram on it. 1920×1080 is the most common slide-deck target so
+  // we default to it — users editing a 4-node diagram who want the
+  // previous tight-fit behavior can flip back to `'auto'`. The
+  // `label` matches the picker's entry so the default state is
+  // highlighted in the UI.
+  const [pageSize, setPageSize] = useState<PageSize>(
+    { width: 1920, height: 1080, label: '1920×1080 · 16:9 slide' }
+  );
 
   // Background picker state. We seed from the document's configured
   // background so users see what they'll get if they pick "theme" —
@@ -142,6 +168,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               scale,
               theme: doc.theme,
               background: backgroundOption,
+              pageSize,
             }),
           });
           if (!res.ok) throw new Error(`server returned ${res.status}`);
@@ -163,6 +190,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const { svg } = renderDiagram(doc, {
         theme: doc.theme || 'polished-dark',
         background: backgroundOption,
+        pageSize,
       });
 
       if (selectedFormat === 'svg') {
@@ -188,6 +216,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const { svg, width: svgW, height: svgH } = renderDiagram(doc, {
         theme: doc.theme || 'polished-dark',
         background: backgroundOption,
+        pageSize,
       });
       const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -461,6 +490,59 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 gap: 14,
               }}
             >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--color-ink)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Maximize2 size={11} style={{ color: 'var(--color-accent)' }} /> canvas size
+                </span>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: 6,
+                  }}
+                >
+                  {PAGE_SIZE_OPTIONS.map(({ value, label }) => {
+                    const active = isSamePageSize(pageSize, value);
+                    return (
+                      <button
+                        key={pageSizeKey(value)}
+                        type="button"
+                        onClick={() => setPageSize(value)}
+                        title={label}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '8px 10px',
+                          background: active ? 'rgba(255, 90, 31, 0.10)' : 'var(--color-bg-raised)',
+                          border: active
+                            ? '1px solid var(--color-accent)'
+                            : '1px solid var(--color-hairline)',
+                          borderRadius: 6,
+                          color: active ? 'var(--color-accent)' : 'var(--color-ink-2)',
+                          cursor: 'pointer',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 10,
+                          letterSpacing: 0.2,
+                          transition: 'all 120ms ease',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <span
                   style={{
@@ -784,4 +866,20 @@ function normalizeColor(value: string): string {
   }
   if (/^#[0-9a-f]{8}$/i.test(v)) return v.slice(0, 7);
   return '#888888';
+}
+
+/**
+ * `PageSize` is `'auto' | { width, height, label? }` — a discriminated
+ * union with object equality needing every field to match. We use
+ * width/height (the actual canvas dimensions) as the identity, so
+ * changing the `label` doesn't deselect a pill.
+ */
+function isSamePageSize(a: PageSize, b: PageSize): boolean {
+  if (a === 'auto' || b === 'auto') return a === b;
+  return a.width === b.width && a.height === b.height;
+}
+
+function pageSizeKey(p: PageSize): string {
+  if (p === 'auto') return 'auto';
+  return `${p.width}x${p.height}`;
 }
