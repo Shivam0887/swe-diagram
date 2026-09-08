@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { McpAuthError } from './mcpAuth';
 
 export function handleApiError(err: unknown): NextResponse {
   if (err instanceof ZodError) {
@@ -15,6 +16,22 @@ export function handleApiError(err: unknown): NextResponse {
         },
       },
       { status: 400 }
+    );
+  }
+
+  if (err instanceof McpAuthError) {
+    const headers: Record<string, string> = {};
+    if (err.code === 'RATE_LIMITED') {
+      // Rate limit headers would be added by the route handler
+    }
+    return NextResponse.json(
+      {
+        error: {
+          code: err.code,
+          message: err.message,
+        },
+      },
+      { status: err.status }
     );
   }
 

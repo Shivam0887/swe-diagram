@@ -15,7 +15,6 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",
     "paths": {
       "@platform/diagram-schema": ["./packages/diagram-schema/src"],
       "@platform/diagram-schema/*": ["./packages/diagram-schema/src/*"],

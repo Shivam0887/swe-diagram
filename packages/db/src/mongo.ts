@@ -55,9 +55,18 @@ export async function getMongoClient(): Promise<MongoClient> {
   return cache.client;
 }
 
+let indexesEnsured = false;
+
 export async function getDb(): Promise<Db> {
   const client = await getMongoClient();
-  return client.db(getDbName());
+  const db = client.db(getDbName());
+  
+  if (!indexesEnsured) {
+    await ensureIndexes(db);
+    indexesEnsured = true;
+  }
+  
+  return db;
 }
 
 /**
@@ -68,4 +77,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await db.collection('projects').createIndex({ updatedAt: -1 });
   await db.collection('diagrams').createIndex({ projectId: 1, updatedAt: -1 });
   await db.collection('diagrams').createIndex({ updatedAt: -1 });
+  await db.collection('api_keys').createIndex({ keyPrefix: 1 }, { unique: true });
+  await db.collection('api_keys').createIndex({ isActive: 1 });
+  await db.collection('api_keys').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 }

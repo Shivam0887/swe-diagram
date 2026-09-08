@@ -56,3 +56,48 @@ export type UpdateDiagramDto = {
   description?: string;
   document?: DiagramDocument;
 };
+
+export type ApiKeyTier = 'free' | 'pro' | 'enterprise';
+
+export type ApiKeyRecord = {
+  id: string;
+  name: string;
+  keyHash: string;
+  keyPrefix: string;
+  tier: ApiKeyTier;
+  scopes: string[];
+  rateLimitRequests: number;
+  rateLimitWindowMs: number;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateApiKeyDto = {
+  name: string;
+  tier?: ApiKeyTier;
+  scopes?: string[];
+  rateLimitRequests?: number;
+  rateLimitWindowMs?: number;
+  expiresAt?: string;
+};
+
+export type UpdateApiKeyDto = {
+  name?: string;
+  tier?: ApiKeyTier;
+  scopes?: string[];
+  rateLimitRequests?: number;
+  rateLimitWindowMs?: number;
+  expiresAt?: string;
+  isActive?: boolean;
+  lastUsedAt?: string;
+};
+
+export type ApiKeyValidationResult = {
+  apiKeyId: string;
+  tier: ApiKeyTier;
+  rateLimitRequests: number;
+  rateLimitWindowMs: number;
+};
