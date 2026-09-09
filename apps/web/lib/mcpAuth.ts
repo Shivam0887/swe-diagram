@@ -70,9 +70,20 @@ export async function validateMcpApiKey(req: NextRequest): Promise<McpAuthContex
     throw new McpAuthError('INVALID_API_KEY', 'Invalid API key format', 401);
   }
 
-  // Key format: prefix_hash (prefix is first 8 chars)
-  const prefix = apiKey.slice(0, 8);
-  const providedHash = apiKey.slice(9); // skip the underscore separator
+  // Key format: dgr_XXXXXXXX_SECRET
+  // The prefix is `dgr_XXXXXXXX` (12 chars), followed by `_`, then the secret.
+  // Find the separator underscore after the `dgr_` portion.
+  const separatorIndex = apiKey.indexOf('_', 4);
+  if (separatorIndex === -1) {
+    throw new McpAuthError('INVALID_API_KEY', 'Invalid API key format', 401);
+  }
+
+  const prefix = apiKey.slice(0, separatorIndex);
+  const secret = apiKey.slice(separatorIndex + 1);
+
+  if (!prefix || !secret) {
+    throw new McpAuthError('INVALID_API_KEY', 'Invalid API key format', 401);
+  }
 
   const record = await apiKeyRepository.findByPrefix(prefix);
   if (!record) {
@@ -88,7 +99,7 @@ export async function validateMcpApiKey(req: NextRequest): Promise<McpAuthContex
   }
 
   // Verify hash using argon2
-  const isValid = await argon2.verify(record.keyHash, providedHash);
+  const isValid = await argon2.verify(record.keyHash, secret);
   if (!isValid) {
     throw new McpAuthError('INVALID_API_KEY', 'Invalid API key', 401);
   }
