@@ -20,10 +20,6 @@ export function handleApiError(err: unknown): NextResponse {
   }
 
   if (err instanceof McpAuthError) {
-    const headers: Record<string, string> = {};
-    if (err.code === 'RATE_LIMITED') {
-      // Rate limit headers would be added by the route handler
-    }
     return NextResponse.json(
       {
         error: {
@@ -31,7 +27,7 @@ export function handleApiError(err: unknown): NextResponse {
           message: err.message,
         },
       },
-      { status: err.status }
+      { status: err.status, headers: err.headers }
     );
   }
 

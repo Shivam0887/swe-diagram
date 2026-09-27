@@ -6,3 +6,7 @@ export {
   diagramRepository,
 } from './repositories/diagramRepository';
 export { ApiKeyRepository, apiKeyRepository } from './repositories/apiKeyRepository';
+export {
+  OAuthClientRepository,
+  oauthClientRepository,
+} from './repositories/oauthClientRepository';

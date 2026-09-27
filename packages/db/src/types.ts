@@ -101,3 +101,43 @@ export type ApiKeyValidationResult = {
   rateLimitRequests: number;
   rateLimitWindowMs: number;
 };
+
+export type OAuthClientType = 'confidential' | 'public';
+
+export type OAuthClientRecord = {
+  id: string;
+  clientId: string;
+  name: string;
+  clientSecretHash?: string;
+  clientType: OAuthClientType;
+  redirectUris: string[];
+  tier: ApiKeyTier;
+  scopes: string[];
+  rateLimitRequests: number;
+  rateLimitWindowMs: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateOAuthClientDto = {
+  name: string;
+  clientType?: OAuthClientType;
+  redirectUris?: string[];
+  tier?: ApiKeyTier;
+  scopes?: string[];
+  rateLimitRequests?: number;
+  rateLimitWindowMs?: number;
+};
+
+export type OAuthAuthorizationCodeRecord = {
+  code: string;
+  clientId: string;
+  redirectUri: string;
+  codeChallenge: string;
+  codeChallengeMethod: 'S256' | 'plain';
+  scopes: string[];
+  expiresAt: string;
+  createdAt: string;
+};
+

@@ -27,7 +27,7 @@ async function handleMcpPost(req: NextRequest) {
     if (error instanceof McpAuthError) {
       return NextResponse.json(
         { error: { code: error.code, message: error.message } },
-        { status: error.status }
+        { status: error.status, headers: error.headers }
       );
     }
     throw error;
